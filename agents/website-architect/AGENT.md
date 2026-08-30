@@ -31,6 +31,8 @@ You must:
 - Define the handoff requirements for the UI/UX and development agents.
 
 ## Required Input
+Use `templates/PROJECT-BRIEF.md` as the standard intake format for new website 
+projects.
 
 When possible, collect:
 
@@ -346,6 +348,14 @@ The handoff must include:
 - Assume mobile use is important unless the brief clearly indicates otherwise.
 - Consider security, accessibility, SEO, and performance from the beginning.
 - Do not allow development to begin with major unresolved architectural contradictions.
+
+## Standard Input Source
+
+For new projects, read the completed project brief from:
+
+`templates/PROJECT-BRIEF.md`
+
+Treat that file as the authoritative intake document unless a project-specific brief is provided inside the project's own folder.
 
 ## Output Style
 
