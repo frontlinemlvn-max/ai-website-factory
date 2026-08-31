@@ -2,12 +2,30 @@
 
 set -e
 
+# Repository-root guard: resolve paths relative to this script's location
+# rather than the caller's working directory, and confirm we are actually
+# inside the AI Website Factory repository before creating anything.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$REPO_ROOT"
+
+if [ ! -f "CLAUDE.md" ] || [ ! -d "agents" ] || [ ! -f "templates/PROJECT-BRIEF.md" ]; then
+  echo "Error: could not confirm the AI Website Factory repository root at $REPO_ROOT."
+  exit 1
+fi
+
 if [ -z "$1" ]; then
   echo "Usage: ./tools/init-project.sh project-name"
   exit 1
 fi
 
 PROJECT_NAME="$1"
+
+if ! [[ "$PROJECT_NAME" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
+  echo "Error: project name must start with a letter or number and contain only letters, numbers, hyphens, and underscores."
+  exit 1
+fi
+
 PROJECT_DIR="projects/$PROJECT_NAME"
 
 if [ -d "$PROJECT_DIR" ]; then
@@ -24,6 +42,11 @@ mkdir -p "$PROJECT_DIR/src"
 mkdir -p "$PROJECT_DIR/tests"
 mkdir -p "$PROJECT_DIR/reports"
 mkdir -p "$PROJECT_DIR/documentation"
+
+# Placeholder files so git tracks these otherwise-empty directories.
+touch "$PROJECT_DIR/design/assets/.gitkeep"
+touch "$PROJECT_DIR/src/.gitkeep"
+touch "$PROJECT_DIR/tests/.gitkeep"
 
 if [ -f "templates/PROJECT-BRIEF.md" ]; then
   cp "templates/PROJECT-BRIEF.md" "$PROJECT_DIR/PROJECT-BRIEF.md"
