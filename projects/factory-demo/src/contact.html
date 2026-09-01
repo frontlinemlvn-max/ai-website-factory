@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contact | SVTIVA Lifestyle</title>
+  <meta name="description" content="Get in touch with SVTIVA Lifestyle. [Placeholder — real contact details pending.]">
+  <meta property="og:title" content="Contact | SVTIVA Lifestyle">
+  <meta property="og:description" content="Get in touch. [Placeholder — pending real content.]">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="container site-header__bar">
+      <a class="brand-wordmark" href="index.html">SVTIVA Lifestyle</a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">Menu</button>
+    </div>
+    <div class="container">
+      <nav class="primary-nav" id="primary-nav" aria-label="Primary">
+        <ul class="primary-nav__list">
+          <li><a href="index.html">Home</a></li>
+          <li><a href="about.html">About</a></li>
+          <li><a href="shop.html">Shop</a></li>
+          <li><a href="lifestyle.html">Lifestyle</a></li>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="contact.html" aria-current="page">Contact</a></li>
+          <li class="nav-cta"><a class="btn btn--primary" href="contact.html">Get in Touch</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content" tabindex="-1">
+    <section class="page-intro">
+      <div class="container text-block">
+        <h1>Get in touch</h1>
+        <p>Send us a note and we'll follow up. [Placeholder intro copy — pending real content.]</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="container contact-layout">
+        <div>
+          <form id="contact-form" novalidate>
+            <div class="form-field">
+              <label for="name">Name <span class="required-marker">(required)</span></label>
+              <input type="text" id="name" name="name" required autocomplete="name">
+              <p class="error-message" role="alert"></p>
+            </div>
+
+            <div class="form-field">
+              <label for="email">Email <span class="required-marker">(required)</span></label>
+              <input type="email" id="email" name="email" required autocomplete="email">
+              <p class="error-message" role="alert"></p>
+            </div>
+
+            <div class="form-field">
+              <label for="reason">Reason for contact <span class="required-marker">(required)</span></label>
+              <select id="reason" name="reason" required>
+                <option value="">Select one&hellip;</option>
+                <option value="general">General inquiry</option>
+                <option value="order">Order question</option>
+                <option value="other">Other</option>
+              </select>
+              <p class="error-message" role="alert"></p>
+            </div>
+
+            <div class="form-field">
+              <label for="message">Message <span class="required-marker">(required)</span></label>
+              <textarea id="message" name="message" required></textarea>
+              <p class="error-message" role="alert"></p>
+            </div>
+
+            <button class="btn btn--primary btn--full-mobile" type="submit">Send Message</button>
+            <p id="form-status" class="form-status" role="status" aria-live="polite"></p>
+          </form>
+
+          <div id="form-success" class="form-success" hidden>
+            <h2>Thanks — your message is on its way.</h2>
+            <p>We'll get back to you soon. (Placeholder note: this confirmation is simulated — no real form backend is connected yet. Real delivery/routing must be set up before launch.)</p>
+          </div>
+        </div>
+
+        <aside class="info-panel">
+          <h2>Other ways to reach us</h2>
+          <p>[Add real contact email]</p>
+          <p>[Add real phone number, if applicable]</p>
+          <p>[Add real business address, if applicable]</p>
+          <p class="text-block"><em>Placeholder notice: contact details above are not yet filled in for SVTIVA Lifestyle.</em></p>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <h2>SVTIVA Lifestyle</h2>
+        <p>Modern athleisure and lifestyle brand. [Placeholder tagline — pending real brand copy.]</p>
+      </div>
+      <div>
+        <h2>Explore</h2>
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="about.html">About</a></li>
+          <li><a href="shop.html">Shop</a></li>
+          <li><a href="lifestyle.html">Lifestyle</a></li>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="contact.html">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Legal</h2>
+        <ul>
+          <li><a href="privacy.html">Privacy Policy</a></li>
+          <li><a href="terms.html">Terms</a></li>
+        </ul>
+        <p>[Add real contact email]</p>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <p>&copy; 2026 SVTIVA Lifestyle. [Placeholder content — pending final brand review before real launch.]</p>
+    </div>
+  </footer>
+
+  <script src="assets/js/main.js"></script>
+</body>
+</html>

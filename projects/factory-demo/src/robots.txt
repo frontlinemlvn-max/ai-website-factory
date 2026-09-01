@@ -1,0 +1,11 @@
+# privacy.html and terms.html are intentionally NOT disallowed here even
+# though they carry <meta name="robots" content="noindex">: disallowing
+# them in robots.txt would stop crawlers from ever fetching the page,
+# which prevents them from seeing and honoring that noindex tag in the
+# first place. Letting them be crawled but not indexed is the correct
+# combination.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://www.svtivalifestyle.tv/sitemap.xml
