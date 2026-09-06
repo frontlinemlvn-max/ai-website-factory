@@ -8,16 +8,33 @@ usage() {
   cat <<'EOF'
 Usage:
   ./factory preview <project-name> [port]
+  ./factory check <project-name>
 
 Examples:
   ./factory preview factory-demo
   ./factory preview factory-demo 9000
+  ./factory check factory-demo
 EOF
 }
 
 fail() {
   printf 'Error: %s\n' "$1" >&2
   exit 1
+}
+
+prepare_project() {
+  PROJECT_NAME="$1"
+
+  if ! [[ "$PROJECT_NAME" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
+    fail "project name must start with a letter or number and contain only letters, numbers, hyphens, and underscores."
+  fi
+
+  PROJECT_DIR="$FACTORY_ROOT/projects/$PROJECT_NAME"
+  SITE_DIR="$PROJECT_DIR/src"
+
+  [ -d "$PROJECT_DIR" ] || fail "project '$PROJECT_NAME' does not exist in $FACTORY_ROOT/projects."
+  [ -d "$SITE_DIR" ] || fail "project '$PROJECT_NAME' has no src directory."
+  [ -f "$SITE_DIR/index.html" ] || fail "project '$PROJECT_NAME' has no src/index.html entry page."
 }
 
 COMMAND="${1:-}"
@@ -29,12 +46,8 @@ case "$COMMAND" in
       exit 1
     fi
 
-    PROJECT_NAME="$2"
+    prepare_project "$2"
     PORT="${3:-8743}"
-
-    if ! [[ "$PROJECT_NAME" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
-      fail "project name must start with a letter or number and contain only letters, numbers, hyphens, and underscores."
-    fi
 
     case "$PORT" in
       ''|*[!0-9]*) fail "port must be a number from 1 to 65535." ;;
@@ -44,18 +57,26 @@ case "$COMMAND" in
       fail "port must be a number from 1 to 65535."
     fi
 
-    PROJECT_DIR="$FACTORY_ROOT/projects/$PROJECT_NAME"
-    SITE_DIR="$PROJECT_DIR/src"
-
-    [ -d "$PROJECT_DIR" ] || fail "project '$PROJECT_NAME' does not exist in $FACTORY_ROOT/projects."
-    [ -d "$SITE_DIR" ] || fail "project '$PROJECT_NAME' has no src directory to preview."
-    [ -f "$SITE_DIR/index.html" ] || fail "project '$PROJECT_NAME' has no src/index.html entry page."
     command -v python3 >/dev/null 2>&1 || fail "python3 is required to run a local preview."
 
     printf 'Previewing %s at http://127.0.0.1:%s/\n' "$PROJECT_NAME" "$PORT"
     printf 'Press Ctrl-C to stop.\n'
 
     exec python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$SITE_DIR"
+    ;;
+  check)
+    if [ "$#" -ne 2 ]; then
+      usage >&2
+      exit 1
+    fi
+
+    prepare_project "$2"
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to check a project."
+
+    CHECKER="$FACTORY_ROOT/tools/check-project.py"
+    [ -f "$CHECKER" ] || fail "project checker is missing at $CHECKER."
+
+    exec python3 "$CHECKER" "$PROJECT_NAME" "$SITE_DIR"
     ;;
   help|-h|--help)
     usage

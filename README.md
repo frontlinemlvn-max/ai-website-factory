@@ -64,6 +64,16 @@ From the factory root, start a safe local preview with:
 
 The command serves `projects/factory-demo/src` at `http://127.0.0.1:8743/` and keeps running until you press `Ctrl-C`. To use another port, add it as the final argument (for example, `./factory preview factory-demo 9000`).
 
+## Project checks
+
+Before committing or deploying a static project, run:
+
+```bash
+./factory check factory-demo
+```
+
+The command checks every HTML page for its basic document structure and duplicate IDs, verifies local links, fragments, and assets, checks CSS delimiter balance and referenced files, and runs a syntax check on every JavaScript file. It uses Python's standard library and, when JavaScript files are present, the installed `node` command.
+
 ## Goal
 
 Create a repeatable AI-assisted workflow capable of producing professional websites efficiently while maintaining human oversight, version control, testing, and quality standards.
