@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+FACTORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  ./factory preview <project-name> [port]
+
+Examples:
+  ./factory preview factory-demo
+  ./factory preview factory-demo 9000
+EOF
+}
+
+fail() {
+  printf 'Error: %s\n' "$1" >&2
+  exit 1
+}
+
+COMMAND="${1:-}"
+
+case "$COMMAND" in
+  preview)
+    if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
+      usage >&2
+      exit 1
+    fi
+
+    PROJECT_NAME="$2"
+    PORT="${3:-8743}"
+
+    if ! [[ "$PROJECT_NAME" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
+      fail "project name must start with a letter or number and contain only letters, numbers, hyphens, and underscores."
+    fi
+
+    case "$PORT" in
+      ''|*[!0-9]*) fail "port must be a number from 1 to 65535." ;;
+    esac
+
+    if [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
+      fail "port must be a number from 1 to 65535."
+    fi
+
+    PROJECT_DIR="$FACTORY_ROOT/projects/$PROJECT_NAME"
+    SITE_DIR="$PROJECT_DIR/src"
+
+    [ -d "$PROJECT_DIR" ] || fail "project '$PROJECT_NAME' does not exist in $FACTORY_ROOT/projects."
+    [ -d "$SITE_DIR" ] || fail "project '$PROJECT_NAME' has no src directory to preview."
+    [ -f "$SITE_DIR/index.html" ] || fail "project '$PROJECT_NAME' has no src/index.html entry page."
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to run a local preview."
+
+    printf 'Previewing %s at http://127.0.0.1:%s/\n' "$PROJECT_NAME" "$PORT"
+    printf 'Press Ctrl-C to stop.\n'
+
+    exec python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$SITE_DIR"
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  '')
+    usage >&2
+    exit 1
+    ;;
+  *)
+    fail "unknown command '$COMMAND'. Run './factory --help' for usage."
+    ;;
+esac

@@ -54,6 +54,16 @@ Human Approval
 ↓
 Deployment
 
+## Local project previews
+
+From the factory root, start a safe local preview with:
+
+```bash
+./factory preview factory-demo
+```
+
+The command serves `projects/factory-demo/src` at `http://127.0.0.1:8743/` and keeps running until you press `Ctrl-C`. To use another port, add it as the final argument (for example, `./factory preview factory-demo 9000`).
+
 ## Goal
 
 Create a repeatable AI-assisted workflow capable of producing professional websites efficiently while maintaining human oversight, version control, testing, and quality standards.
