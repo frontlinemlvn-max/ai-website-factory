@@ -10,6 +10,7 @@ Usage:
   ./factory create <project-name>
   ./factory list
   ./factory status <project-name>
+  ./factory validate-brief <project-name>
   ./factory preview <project-name> [port]
   ./factory check <project-name>
 
@@ -17,6 +18,7 @@ Examples:
   ./factory create client-website
   ./factory list
   ./factory status factory-demo
+  ./factory validate-brief factory-demo
   ./factory preview factory-demo
   ./factory preview factory-demo 9000
   ./factory check factory-demo
@@ -89,6 +91,22 @@ case "$COMMAND" in
     [ -f "$STATUS_TOOL" ] || fail "project status tool is missing at $STATUS_TOOL."
 
     exec python3 "$STATUS_TOOL" show "$PROJECT_NAME" "$PROJECT_DIR"
+    ;;
+  validate-brief)
+    if [ "$#" -ne 2 ]; then
+      usage >&2
+      exit 1
+    fi
+
+    prepare_project_directory "$2"
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to validate a project brief."
+
+    BRIEF_VALIDATOR="$FACTORY_ROOT/tools/validate-brief.py"
+    BRIEF_FILE="$PROJECT_DIR/PROJECT-BRIEF.md"
+    [ -f "$BRIEF_VALIDATOR" ] || fail "project brief validator is missing at $BRIEF_VALIDATOR."
+    [ -f "$BRIEF_FILE" ] || fail "project '$PROJECT_NAME' has no PROJECT-BRIEF.md file."
+
+    exec python3 "$BRIEF_VALIDATOR" "$PROJECT_NAME" "$BRIEF_FILE"
     ;;
   preview)
     if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then

@@ -80,6 +80,16 @@ Show a project's stage, owner, active work, blockers, known issues, human decisi
 
 Both commands are read-only and use each project's existing `PROJECT-STATUS.md` file.
 
+## Validate a project brief
+
+Before architecture or implementation begins, validate that the project brief contains the required intake information:
+
+```bash
+./factory validate-brief client-website
+```
+
+The validator checks all required brief sections, 27 core fields, goals, audience needs, website type, required pages, features, and constraints. Placeholder or deferred-decision wording is reported for review. A brief can be ready for architecture while production approval remains pending; deployment still requires separate explicit human approval.
+
 ## Local project previews
 
 From the factory root, start a safe local preview with:
