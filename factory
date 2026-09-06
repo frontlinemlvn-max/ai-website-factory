@@ -7,10 +7,12 @@ FACTORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 usage() {
   cat <<'EOF'
 Usage:
+  ./factory create <project-name>
   ./factory preview <project-name> [port]
   ./factory check <project-name>
 
 Examples:
+  ./factory create client-website
   ./factory preview factory-demo
   ./factory preview factory-demo 9000
   ./factory check factory-demo
@@ -22,12 +24,15 @@ fail() {
   exit 1
 }
 
-prepare_project() {
-  PROJECT_NAME="$1"
-
-  if ! [[ "$PROJECT_NAME" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
+validate_project_name() {
+  if ! [[ "$1" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
     fail "project name must start with a letter or number and contain only letters, numbers, hyphens, and underscores."
   fi
+}
+
+prepare_project() {
+  PROJECT_NAME="$1"
+  validate_project_name "$PROJECT_NAME"
 
   PROJECT_DIR="$FACTORY_ROOT/projects/$PROJECT_NAME"
   SITE_DIR="$PROJECT_DIR/src"
@@ -40,6 +45,18 @@ prepare_project() {
 COMMAND="${1:-}"
 
 case "$COMMAND" in
+  create)
+    if [ "$#" -ne 2 ]; then
+      usage >&2
+      exit 1
+    fi
+
+    validate_project_name "$2"
+    INITIALIZER="$FACTORY_ROOT/tools/init-project.sh"
+    [ -x "$INITIALIZER" ] || fail "project initializer is missing or not executable at $INITIALIZER."
+
+    exec "$INITIALIZER" "$2"
+    ;;
   preview)
     if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
       usage >&2

@@ -54,6 +54,16 @@ Human Approval
 ↓
 Deployment
 
+## Create a project
+
+From the factory root, create a new project scaffold with:
+
+```bash
+./factory create client-website
+```
+
+The command validates the project name, refuses to overwrite an existing project, and creates the standard architecture, design, source, test, report, and documentation structure under `projects/`. After creation, complete the new project's `PROJECT-BRIEF.md` before beginning architecture or implementation.
+
 ## Local project previews
 
 From the factory root, start a safe local preview with:
