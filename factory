@@ -8,11 +8,15 @@ usage() {
   cat <<'EOF'
 Usage:
   ./factory create <project-name>
+  ./factory list
+  ./factory status <project-name>
   ./factory preview <project-name> [port]
   ./factory check <project-name>
 
 Examples:
   ./factory create client-website
+  ./factory list
+  ./factory status factory-demo
   ./factory preview factory-demo
   ./factory preview factory-demo 9000
   ./factory check factory-demo
@@ -30,14 +34,18 @@ validate_project_name() {
   fi
 }
 
-prepare_project() {
+prepare_project_directory() {
   PROJECT_NAME="$1"
   validate_project_name "$PROJECT_NAME"
 
   PROJECT_DIR="$FACTORY_ROOT/projects/$PROJECT_NAME"
-  SITE_DIR="$PROJECT_DIR/src"
-
   [ -d "$PROJECT_DIR" ] || fail "project '$PROJECT_NAME' does not exist in $FACTORY_ROOT/projects."
+}
+
+prepare_site() {
+  prepare_project_directory "$1"
+
+  SITE_DIR="$PROJECT_DIR/src"
   [ -d "$SITE_DIR" ] || fail "project '$PROJECT_NAME' has no src directory."
   [ -f "$SITE_DIR/index.html" ] || fail "project '$PROJECT_NAME' has no src/index.html entry page."
 }
@@ -57,13 +65,38 @@ case "$COMMAND" in
 
     exec "$INITIALIZER" "$2"
     ;;
+  list)
+    if [ "$#" -ne 1 ]; then
+      usage >&2
+      exit 1
+    fi
+
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to list projects."
+    STATUS_TOOL="$FACTORY_ROOT/tools/project-status.py"
+    [ -f "$STATUS_TOOL" ] || fail "project status tool is missing at $STATUS_TOOL."
+
+    exec python3 "$STATUS_TOOL" list "$FACTORY_ROOT/projects"
+    ;;
+  status)
+    if [ "$#" -ne 2 ]; then
+      usage >&2
+      exit 1
+    fi
+
+    prepare_project_directory "$2"
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to show project status."
+    STATUS_TOOL="$FACTORY_ROOT/tools/project-status.py"
+    [ -f "$STATUS_TOOL" ] || fail "project status tool is missing at $STATUS_TOOL."
+
+    exec python3 "$STATUS_TOOL" show "$PROJECT_NAME" "$PROJECT_DIR"
+    ;;
   preview)
     if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
       usage >&2
       exit 1
     fi
 
-    prepare_project "$2"
+    prepare_site "$2"
     PORT="${3:-8743}"
 
     case "$PORT" in
@@ -87,7 +120,7 @@ case "$COMMAND" in
       exit 1
     fi
 
-    prepare_project "$2"
+    prepare_site "$2"
     command -v python3 >/dev/null 2>&1 || fail "python3 is required to check a project."
 
     CHECKER="$FACTORY_ROOT/tools/check-project.py"

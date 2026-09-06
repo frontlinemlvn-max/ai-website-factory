@@ -64,6 +64,22 @@ From the factory root, create a new project scaffold with:
 
 The command validates the project name, refuses to overwrite an existing project, and creates the standard architecture, design, source, test, report, and documentation structure under `projects/`. After creation, complete the new project's `PROJECT-BRIEF.md` before beginning architecture or implementation.
 
+## List projects and view status
+
+List every factory project and its current stage:
+
+```bash
+./factory list
+```
+
+Show a project's stage, owner, active work, blockers, known issues, human decisions, and next action:
+
+```bash
+./factory status factory-demo
+```
+
+Both commands are read-only and use each project's existing `PROJECT-STATUS.md` file.
+
 ## Local project previews
 
 From the factory root, start a safe local preview with:
