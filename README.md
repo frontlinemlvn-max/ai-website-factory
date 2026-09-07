@@ -90,6 +90,16 @@ Before architecture or implementation begins, validate that the project brief co
 
 The validator checks all required brief sections, 27 core fields, goals, audience needs, website type, required pages, features, and constraints. Placeholder or deferred-decision wording is reported for review. A brief can be ready for architecture while production approval remains pending; deployment still requires separate explicit human approval.
 
+## Validate a workflow stage
+
+Validate the current stage's actual deliverable before attempting to advance:
+
+```bash
+./factory validate-stage client-website
+```
+
+The validator checks substantive architecture and design content, source and development instructions, QA and specialist audit coverage, launch-readiness evidence, or deployment documentation according to the project's current stage. It rejects empty reports, untouched scaffolds, missing required topics, failed readiness verdicts, and incomplete deployment verification. Structural validation supports specialist review; it does not replace professional judgment or human approval.
+
 ## Control project workflow
 
 Show the current stage, next stage, responsible agent, required output, and whether the transition gate is ready:
@@ -104,7 +114,7 @@ After completing the required output, advance exactly one stage:
 ./factory advance client-website
 ```
 
-`next` is read-only. `advance` validates the current stage's minimum required output and updates only `PROJECT-STATUS.md`; it cannot skip stages. Generic advancement cannot grant human approval or deploy a production project. Conditional Backend, Debugging, and Blocked states remain under the Project Orchestrator's routing rules in `workflows/WEBSITE-BUILD.md`.
+`next` is read-only. `advance` runs the stage validator and updates only `PROJECT-STATUS.md` after the current deliverable passes; it cannot skip stages. Generic advancement cannot grant human approval or deploy a production project. Conditional Backend, Debugging, and Blocked states remain under the Project Orchestrator's routing rules in `workflows/WEBSITE-BUILD.md`.
 
 ## Local project previews
 

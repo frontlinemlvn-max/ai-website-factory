@@ -11,6 +11,7 @@ Usage:
   ./factory list
   ./factory status <project-name>
   ./factory validate-brief <project-name>
+  ./factory validate-stage <project-name>
   ./factory next <project-name>
   ./factory advance <project-name>
   ./factory preview <project-name> [port]
@@ -21,6 +22,7 @@ Examples:
   ./factory list
   ./factory status factory-demo
   ./factory validate-brief factory-demo
+  ./factory validate-stage factory-demo
   ./factory next factory-demo
   ./factory advance client-website
   ./factory preview factory-demo
@@ -111,6 +113,20 @@ case "$COMMAND" in
     [ -f "$BRIEF_FILE" ] || fail "project '$PROJECT_NAME' has no PROJECT-BRIEF.md file."
 
     exec python3 "$BRIEF_VALIDATOR" "$PROJECT_NAME" "$BRIEF_FILE"
+    ;;
+  validate-stage)
+    if [ "$#" -ne 2 ]; then
+      usage >&2
+      exit 1
+    fi
+
+    prepare_project_directory "$2"
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to validate a project stage."
+
+    STAGE_VALIDATOR="$FACTORY_ROOT/tools/validate-stage.py"
+    [ -f "$STAGE_VALIDATOR" ] || fail "project stage validator is missing at $STAGE_VALIDATOR."
+
+    exec python3 "$STAGE_VALIDATOR" "$PROJECT_NAME" "$PROJECT_DIR"
     ;;
   next|advance)
     if [ "$#" -ne 2 ]; then

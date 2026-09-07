@@ -135,15 +135,6 @@ NEXT_STAGE = {
     "Deployment Ready": "Deployed",
 }
 
-REPORT_GATES = {
-    "QA": "reports/QA-REPORT.md",
-    "SEO": "reports/SEO-REPORT.md",
-    "Security": "reports/SECURITY-REPORT.md",
-    "Performance": "reports/PERFORMANCE-REPORT.md",
-    "Accessibility": "reports/ACCESSIBILITY-REPORT.md",
-    "Final Review": "reports/LAUNCH-READINESS.md",
-}
-
 ALIASES = {
     "SEO & Content": "SEO",
     "Final QA": "Final Review",
@@ -184,26 +175,6 @@ def has_blockers(sections):
     return not first_line.startswith(("none", "no blocker"))
 
 
-def substantive_file(project_directory, relative_path, scaffold_markers=()):
-    path = project_directory / relative_path
-    if not path.is_file():
-        return f"missing required output: {relative_path}"
-
-    try:
-        text = path.read_text(encoding="utf-8").strip()
-    except (OSError, UnicodeDecodeError) as error:
-        return f"cannot read {relative_path}: {error}"
-
-    if not text:
-        return f"required output is empty: {relative_path}"
-
-    lowered = text.lower()
-    for marker in scaffold_markers:
-        if marker.lower() in lowered:
-            return f"required output still contains scaffold marker '{marker}': {relative_path}"
-    return None
-
-
 def run_tool(command):
     return subprocess.run(command, capture_output=True, text=True, check=False)
 
@@ -213,52 +184,18 @@ def gate_errors(project_name, project_directory, stage, sections):
     if has_blockers(sections):
         errors.append("PROJECT-STATUS.md contains active blockers")
 
-    if stage == "Intake":
-        validator = FACTORY_ROOT / "tools" / "validate-brief.py"
-        brief = project_directory / "PROJECT-BRIEF.md"
-        if not validator.is_file():
-            errors.append("project brief validator is missing")
-        elif not brief.is_file():
-            errors.append("missing required output: PROJECT-BRIEF.md")
-        else:
-            result = run_tool([sys.executable, str(validator), project_name, str(brief)])
-            if result.returncode != 0:
-                errors.append(f"project brief is not ready; run './factory validate-brief {project_name}'")
-    elif stage == "Architecture":
-        problem = substantive_file(
-            project_directory,
-            "architecture/ARCHITECTURE.md",
-            ("Status: Not started", "To be completed by Website Architect"),
-        )
-        if problem:
-            errors.append(problem)
-    elif stage == "Design":
-        problem = substantive_file(
-            project_directory,
-            "design/UI-UX-SPEC.md",
-            ("Status: Not started", "To be completed by UI/UX Designer"),
-        )
-        if problem:
-            errors.append(problem)
-    elif stage in ("Development", "Backend", "Debugging"):
-        checker = FACTORY_ROOT / "tools" / "check-project.py"
-        site_directory = project_directory / "src"
-        if not checker.is_file():
-            errors.append("project checker is missing")
-        elif not (site_directory / "index.html").is_file():
-            errors.append("missing required output: src/index.html")
-        else:
-            result = run_tool([sys.executable, str(checker), project_name, str(site_directory)])
-            if result.returncode != 0:
-                errors.append(f"project checks are failing; run './factory check {project_name}'")
-    elif stage in REPORT_GATES:
-        problem = substantive_file(project_directory, REPORT_GATES[stage])
-        if problem:
-            errors.append(problem)
-    elif stage == "Ready for Human Approval":
+    validator = FACTORY_ROOT / "tools" / "validate-stage.py"
+    if not validator.is_file():
+        errors.append("project stage validator is missing")
+    else:
+        result = run_tool([sys.executable, str(validator), project_name, str(project_directory), stage])
+        if result.returncode != 0:
+            errors.append(f"stage validation is failing; run './factory validate-stage {project_name}'")
+
+    if stage == "Ready for Human Approval":
         errors.append("generic advancement cannot grant human approval")
     elif stage == "Approved":
-        errors.append("the deployment-readiness gate is not built yet")
+        errors.append("the release-readiness gate is not built yet")
     elif stage == "Deployment Ready":
         errors.append("generic advancement cannot deploy a production project")
     elif stage == "Blocked":
