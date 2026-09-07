@@ -1,0 +1,3 @@
+[submodule "projects/factory-demo"]
+	path = projects/factory-demo
+	url = https://github.com/frontlinemlvn-max/svtiva-lifestyle.git
