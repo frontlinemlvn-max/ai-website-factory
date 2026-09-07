@@ -11,6 +11,8 @@ Usage:
   ./factory list
   ./factory status <project-name>
   ./factory validate-brief <project-name>
+  ./factory next <project-name>
+  ./factory advance <project-name>
   ./factory preview <project-name> [port]
   ./factory check <project-name>
 
@@ -19,6 +21,8 @@ Examples:
   ./factory list
   ./factory status factory-demo
   ./factory validate-brief factory-demo
+  ./factory next factory-demo
+  ./factory advance client-website
   ./factory preview factory-demo
   ./factory preview factory-demo 9000
   ./factory check factory-demo
@@ -107,6 +111,20 @@ case "$COMMAND" in
     [ -f "$BRIEF_FILE" ] || fail "project '$PROJECT_NAME' has no PROJECT-BRIEF.md file."
 
     exec python3 "$BRIEF_VALIDATOR" "$PROJECT_NAME" "$BRIEF_FILE"
+    ;;
+  next|advance)
+    if [ "$#" -ne 2 ]; then
+      usage >&2
+      exit 1
+    fi
+
+    prepare_project_directory "$2"
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to control project workflow."
+
+    WORKFLOW_CONTROLLER="$FACTORY_ROOT/tools/workflow-controller.py"
+    [ -f "$WORKFLOW_CONTROLLER" ] || fail "workflow controller is missing at $WORKFLOW_CONTROLLER."
+
+    exec python3 "$WORKFLOW_CONTROLLER" "$COMMAND" "$PROJECT_NAME" "$PROJECT_DIR"
     ;;
   preview)
     if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
