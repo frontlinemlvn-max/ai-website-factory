@@ -255,12 +255,22 @@ def write_text(path, content, executable=False):
 
 def copy_factory(destination):
     ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
-    for name in ("agents", "templates", "tools", "workflows"):
+    for name in ("agents", "documentation", "templates", "tools", "workflows"):
         source = FACTORY_ROOT / name
         shutil.copytree(source, destination / name, symlinks=True, ignore=ignore)
     for name in ("factory", "CLAUDE.md", "README.md"):
         shutil.copy2(FACTORY_ROOT / name, destination / name)
     (destination / "projects").mkdir()
+
+    git = shutil.which("git")
+    require(git is not None, "git is required to prepare the isolated doctor test")
+    initialized = subprocess.run(
+        [git, "init", "--quiet", str(destination)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    require(initialized.returncode == 0, f"isolated Git repository setup failed: {initialized.stderr}")
 
 
 def status_document(stage):
@@ -450,6 +460,7 @@ def run_suite(suite):
         suite.expect(
             result,
             0,
+            "./factory doctor",
             "./factory create",
             "./factory deploy",
             "./factory rollback",
@@ -462,6 +473,21 @@ def run_suite(suite):
         "test command rejects unexpected arguments",
         lambda: suite.expect(suite.run("test", "unexpected"), 1, "Usage:"),
     )
+    suite.case(
+        "doctor rejects unexpected arguments",
+        lambda: suite.expect(suite.run("doctor", "unexpected"), 1, "Usage:"),
+    )
+
+    def empty_factory_doctor_case():
+        if suite.vercel_log.exists():
+            suite.vercel_log.unlink()
+        before = fingerprint_tree(suite.root)
+        result = suite.run("doctor", environment=fake_environment)
+        suite.expect(result, 0, "AI Website Factory doctor", "HEALTHY", "No projects yet")
+        require(not suite.vercel_log.exists(), "doctor invoked the Vercel executable")
+        require(fingerprint_tree(suite.root) == before, "doctor changed the factory")
+
+    suite.case("doctor passes read-only checks on a healthy empty factory", empty_factory_doctor_case)
 
     def invalid_name_case():
         result = suite.run("create", "../escaped")
@@ -489,6 +515,27 @@ def run_suite(suite):
         "status reads the isolated project state",
         lambda: suite.expect(suite.run("status", PROJECT_NAME), 0, "Current Stage: Intake"),
     )
+
+    def project_doctor_case():
+        before = fingerprint_tree(suite.root)
+        result = suite.run("doctor", environment=fake_environment)
+        suite.expect(result, 0, "Projects: all 1 project scaffold(s) are structurally complete")
+        require(fingerprint_tree(suite.root) == before, "project health check changed the factory")
+
+    suite.case("doctor accepts a complete project scaffold", project_doctor_case)
+
+    def broken_status_doctor_case():
+        original = suite.status_file.read_text(encoding="utf-8")
+        write_text(suite.status_file, "# Broken project status\n")
+        try:
+            before = fingerprint_tree(suite.root)
+            result = suite.run("doctor", environment=fake_environment)
+            suite.expect(result, 1, "UNHEALTHY", "PROJECT-STATUS.md is missing the Current Stage section")
+            require(fingerprint_tree(suite.root) == before, "failed doctor check changed the factory")
+        finally:
+            write_text(suite.status_file, original)
+
+    suite.case("doctor reports a malformed project status", broken_status_doctor_case)
     suite.case(
         "brief validator rejects untouched placeholders",
         lambda: suite.expect(suite.run("validate-brief", PROJECT_NAME), 1, "NOT READY"),
@@ -602,6 +649,28 @@ def run_suite(suite):
         suite.project / ".vercel" / "project.json",
         '{"orgId":"team_FactorySuite","projectId":"prj_FactorySuite"}\n',
     )
+
+    def linked_project_doctor_case():
+        before = fingerprint_tree(suite.root)
+        result = suite.run("doctor", environment=fake_environment)
+        suite.expect(result, 0, "Vercel links: 1 valid project link(s)")
+        require(fingerprint_tree(suite.root) == before, "Vercel link health check changed the factory")
+
+    suite.case("doctor validates an existing Vercel project link", linked_project_doctor_case)
+
+    def invalid_link_doctor_case():
+        link_file = suite.project / ".vercel" / "project.json"
+        original = link_file.read_text(encoding="utf-8")
+        write_text(link_file, '{"orgId":"","projectId":"prj_FactorySuite"}\n')
+        try:
+            before = fingerprint_tree(suite.root)
+            result = suite.run("doctor", environment=fake_environment)
+            suite.expect(result, 1, "UNHEALTHY", "lacks organization or project identifiers")
+            require(fingerprint_tree(suite.root) == before, "invalid link check changed the factory")
+        finally:
+            write_text(link_file, original)
+
+    suite.case("doctor reports an invalid Vercel project link", invalid_link_doctor_case)
 
     def dry_run_case():
         if suite.vercel_log.exists():

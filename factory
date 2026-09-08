@@ -7,6 +7,7 @@ FACTORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 usage() {
   cat <<'EOF'
 Usage:
+  ./factory doctor
   ./factory create <project-name>
   ./factory list
   ./factory status <project-name>
@@ -26,6 +27,7 @@ Usage:
   ./factory test
 
 Examples:
+  ./factory doctor
   ./factory create client-website
   ./factory list
   ./factory status factory-demo
@@ -77,6 +79,18 @@ prepare_site() {
 COMMAND="${1:-}"
 
 case "$COMMAND" in
+  doctor)
+    if [ "$#" -ne 1 ]; then
+      usage >&2
+      exit 1
+    fi
+
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to inspect factory health."
+    DOCTOR="$FACTORY_ROOT/tools/factory-doctor.py"
+    [ -f "$DOCTOR" ] || fail "factory doctor is missing at $DOCTOR."
+
+    exec python3 "$DOCTOR"
+    ;;
   create)
     if [ "$#" -ne 2 ]; then
       usage >&2

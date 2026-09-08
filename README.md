@@ -54,6 +54,16 @@ Human Approval
 ↓
 Deployment
 
+## Check factory health
+
+Before starting work—or when a command is not behaving as expected—run the read-only factory health check:
+
+```bash
+./factory doctor
+```
+
+The doctor verifies the local Python, Bash, and Git requirements; confirms that the repository root, required factory files, agent instructions, and executable permissions are intact; checks every project scaffold and status file; and validates any existing Vercel project links without displaying their identifiers. Node.js and the Vercel CLI are reported as optional capabilities because they are needed only for JavaScript checking or explicitly authorized production actions. The command never installs anything, authenticates, contacts a network service, or changes files.
+
 ## Create a project
 
 From the factory root, create a new project scaffold with:
@@ -210,7 +220,7 @@ Before committing changes to the factory itself, run its isolated regression sui
 ./factory test
 ```
 
-The suite copies the factory into a temporary directory, creates a disposable project, and exercises every public command. It verifies project creation, status reporting, brief and stage validation, workflow handoffs and transitions, human approval, release readiness, deployment and rollback safeguards, static checks, and local previews. Vercel behavior is represented by a local fake executable: the suite never authenticates with or contacts Vercel, changes production, or modifies anything under the real `projects/` directory.
+The suite copies the factory into a temporary directory, creates a disposable project, and exercises every public command. It verifies factory health diagnostics, project creation, status reporting, brief and stage validation, workflow handoffs and transitions, human approval, release readiness, deployment and rollback safeguards, static checks, and local previews. Vercel behavior is represented by a local fake executable: the suite never authenticates with or contacts Vercel, changes production, or modifies anything under the real `projects/` directory.
 
 ## Goal
 
