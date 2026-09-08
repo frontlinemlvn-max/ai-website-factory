@@ -2,6 +2,7 @@
 
 """Guide and safely advance AI Website Factory project stages."""
 
+from datetime import datetime, timezone
 from pathlib import Path
 import os
 import stat
@@ -202,7 +203,7 @@ def run_tool(command):
     return subprocess.run(command, capture_output=True, text=True, check=False)
 
 
-def gate_errors(project_name, project_directory, stage, sections):
+def gate_errors(project_name, project_directory, stage, sections, allow_human_approval=False):
     errors = []
     if has_blockers(sections):
         errors.append("PROJECT-STATUS.md contains active blockers")
@@ -215,7 +216,7 @@ def gate_errors(project_name, project_directory, stage, sections):
         if result.returncode != 0:
             errors.append(f"stage validation is failing; run './factory validate-stage {project_name}'")
 
-    if stage == "Ready for Human Approval":
+    if stage == "Ready for Human Approval" and not allow_human_approval:
         errors.append("generic advancement cannot grant human approval")
     elif stage == "Approved":
         errors.append("the release-readiness gate is not built yet")
@@ -520,6 +521,84 @@ def create_handoff(project_name, project_directory):
     return 0
 
 
+def approve(project_name, project_directory, confirmation):
+    if confirmation != "APPROVED":
+        print(
+            f"NOT APPROVED: confirmation must be exactly 'APPROVED'. "
+            f"Run './factory approve {project_name} APPROVED' after reviewing the launch evidence.",
+            file=sys.stderr,
+        )
+        return 1
+
+    status_file, text, sections, stage = load_project(project_name, project_directory)
+    if stage != "Ready for Human Approval":
+        print(
+            f"NOT APPROVED: project '{project_name}' is in {stage}, not Ready for Human Approval.",
+            file=sys.stderr,
+        )
+        return 1
+
+    errors = gate_errors(
+        project_name,
+        project_directory,
+        stage,
+        sections,
+        allow_human_approval=True,
+    )
+    if errors:
+        print(f"NOT APPROVED: {project_name} did not pass the human approval gate.", file=sys.stderr)
+        for error in errors:
+            print(f"  - {error}", file=sys.stderr)
+        return 1
+
+    recorded_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    previous_decision_context = status_section(
+        sections,
+        "Human Decisions Required",
+        "Explicit human approval was required before release preparation.",
+    )
+    approval_record = "\n".join(
+        (
+            "No production approval decision is pending.",
+            "",
+            "Approval record:",
+            "- **Decision:** APPROVED",
+            f"- **Recorded at:** {recorded_at}",
+            f"- **Recorded through:** `./factory approve {project_name} APPROVED`",
+            "- **Evidence:** `reports/LAUNCH-READINESS.md`",
+            "- **Scope:** Authorizes release preparation only; no deployment was performed.",
+            "",
+            "Decision context presented before approval:",
+            previous_decision_context,
+        )
+    )
+    target = STAGES["Approved"]
+    completed = completed_stages_body(sections.get("Completed Stages", ""), stage)
+    next_action = (
+        f"{target['action']} Required output: {target['output']}. "
+        f"Run './factory validate-stage {project_name}' when the deployment plan is complete. "
+        "A separate explicit instruction is still required for production deployment."
+    )
+
+    try:
+        text = replace_section(text, "Current Stage", "Approved")
+        text = replace_section(text, "Current Owner", target["owner"])
+        text = replace_section(text, "Completed Stages", completed)
+        text = replace_section(text, "Active Work", target["action"])
+        text = replace_section(text, "Human Decisions Required", approval_record)
+        text = replace_section(text, "Next Action", next_action)
+        write_status(status_file, text)
+    except (OSError, ValueError) as error:
+        print(f"NOT APPROVED: could not update PROJECT-STATUS.md ({error}).", file=sys.stderr)
+        return 1
+
+    print(f"Human approval recorded: {project_name}")
+    print("Transition: Ready for Human Approval -> Approved")
+    print(f"Recorded at: {recorded_at}")
+    print("No deployment was performed.")
+    return 0
+
+
 def advance(project_name, project_directory):
     status_file, text, sections, stage = load_project(project_name, project_directory)
     if stage == "Deployed":
@@ -570,14 +649,17 @@ def advance(project_name, project_directory):
 
 
 def main():
-    if len(sys.argv) != 4 or sys.argv[1] not in ("next", "handoff", "advance"):
+    command = sys.argv[1] if len(sys.argv) > 1 else ""
+    standard_command = command in ("next", "handoff", "advance") and len(sys.argv) == 4
+    approval_command = command == "approve" and len(sys.argv) == 5
+    if not standard_command and not approval_command:
         print(
-            "Usage: workflow-controller.py <next|handoff|advance> <project-name> <project-directory>",
+            "Usage: workflow-controller.py <next|handoff|advance> <project-name> <project-directory>\n"
+            "       workflow-controller.py approve <project-name> <project-directory> APPROVED",
             file=sys.stderr,
         )
         return 2
 
-    command = sys.argv[1]
     project_name = sys.argv[2]
     project_directory = Path(sys.argv[3]).resolve()
 
@@ -586,6 +668,8 @@ def main():
             return show_next(project_name, project_directory)
         if command == "handoff":
             return create_handoff(project_name, project_directory)
+        if command == "approve":
+            return approve(project_name, project_directory, sys.argv[4])
         return advance(project_name, project_directory)
     except ValueError as error:
         print(f"Error: {error}.", file=sys.stderr)

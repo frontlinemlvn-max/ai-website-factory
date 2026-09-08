@@ -15,6 +15,7 @@ Usage:
   ./factory next <project-name>
   ./factory handoff <project-name>
   ./factory advance <project-name>
+  ./factory approve <project-name> APPROVED
   ./factory preview <project-name> [port]
   ./factory check <project-name>
 
@@ -27,6 +28,7 @@ Examples:
   ./factory next factory-demo
   ./factory handoff client-website
   ./factory advance client-website
+  ./factory approve client-website APPROVED
   ./factory preview factory-demo
   ./factory preview factory-demo 9000
   ./factory check factory-demo
@@ -143,6 +145,20 @@ case "$COMMAND" in
     [ -f "$WORKFLOW_CONTROLLER" ] || fail "workflow controller is missing at $WORKFLOW_CONTROLLER."
 
     exec python3 "$WORKFLOW_CONTROLLER" "$COMMAND" "$PROJECT_NAME" "$PROJECT_DIR"
+    ;;
+  approve)
+    if [ "$#" -ne 3 ]; then
+      usage >&2
+      exit 1
+    fi
+
+    prepare_project_directory "$2"
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to record human approval."
+
+    WORKFLOW_CONTROLLER="$FACTORY_ROOT/tools/workflow-controller.py"
+    [ -f "$WORKFLOW_CONTROLLER" ] || fail "workflow controller is missing at $WORKFLOW_CONTROLLER."
+
+    exec python3 "$WORKFLOW_CONTROLLER" approve "$PROJECT_NAME" "$PROJECT_DIR" "$3"
     ;;
   preview)
     if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then

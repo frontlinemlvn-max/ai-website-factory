@@ -539,6 +539,12 @@ NOT APPROVED
 
 Silence does not count as approval.
 
+After reviewing the evidence, record an approval with:
+
+`./factory approve project-name APPROVED`
+
+The exact `APPROVED` confirmation is required. This records the decision and permits release preparation only; it does not deploy the project.
+
 ---
 
 # 17. Deployment

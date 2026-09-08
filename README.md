@@ -124,6 +124,16 @@ After completing the required output, advance exactly one stage:
 
 `next` is read-only. `advance` runs the stage validator and updates only `PROJECT-STATUS.md` after the current deliverable passes; it cannot skip stages. Generic advancement cannot grant human approval or deploy a production project. Conditional Backend, Debugging, and Blocked states remain under the Project Orchestrator's routing rules in `workflows/WEBSITE-BUILD.md`.
 
+## Record human approval
+
+After Final Review passes and the project has advanced to `Ready for Human Approval`, review the launch-readiness evidence and record an explicit approval with:
+
+```bash
+./factory approve client-website APPROVED
+```
+
+The final `APPROVED` confirmation is case-sensitive and intentional. The command revalidates launch readiness, refuses projects in any other stage or with active blockers, and records the UTC decision time and evidence in `PROJECT-STATUS.md`. Approval moves the project to `Approved` for release preparation; it does not deploy the project. Production deployment always requires a separate explicit instruction.
+
 ## Local project previews
 
 From the factory root, start a safe local preview with:
