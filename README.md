@@ -182,6 +182,16 @@ Before committing or deploying a static project, run:
 
 The command checks every HTML page for its basic document structure and duplicate IDs, verifies local links, fragments, and assets, checks CSS delimiter balance and referenced files, and runs a syntax check on every JavaScript file. It uses Python's standard library and, when JavaScript files are present, the installed `node` command.
 
+## Test the factory
+
+Before committing changes to the factory itself, run its isolated regression suite:
+
+```bash
+./factory test
+```
+
+The suite copies the factory into a temporary directory, creates a disposable project, and exercises every public command. It verifies project creation, status reporting, brief and stage validation, workflow handoffs and transitions, human approval, release readiness, deployment safeguards, static checks, and local previews. Vercel behavior is represented by a local fake executable: the suite never authenticates, contacts Vercel, deploys a project, or changes anything under the real `projects/` directory.
+
 ## Goal
 
 Create a repeatable AI-assisted workflow capable of producing professional websites efficiently while maintaining human oversight, version control, testing, and quality standards.

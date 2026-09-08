@@ -21,6 +21,7 @@ Usage:
   ./factory deploy <project-name> --confirm DEPLOY
   ./factory preview <project-name> [port]
   ./factory check <project-name>
+  ./factory test
 
 Examples:
   ./factory create client-website
@@ -38,6 +39,7 @@ Examples:
   ./factory preview factory-demo
   ./factory preview factory-demo 9000
   ./factory check factory-demo
+  ./factory test
 EOF
 }
 
@@ -238,6 +240,19 @@ case "$COMMAND" in
     [ -f "$CHECKER" ] || fail "project checker is missing at $CHECKER."
 
     exec python3 "$CHECKER" "$PROJECT_NAME" "$SITE_DIR"
+    ;;
+  test)
+    if [ "$#" -ne 1 ]; then
+      usage >&2
+      exit 1
+    fi
+
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to test the factory."
+
+    TEST_RUNNER="$FACTORY_ROOT/tools/test-factory.py"
+    [ -f "$TEST_RUNNER" ] || fail "factory test runner is missing at $TEST_RUNNER."
+
+    exec python3 "$TEST_RUNNER"
     ;;
   help|-h|--help)
     usage
