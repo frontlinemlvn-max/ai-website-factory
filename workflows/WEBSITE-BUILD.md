@@ -557,6 +557,16 @@ Before a project can enter `Deployment Ready`, run:
 
 The release gate verifies the approval record, active blockers, deployment and rollback documentation, project integrity checks, and likely secret exposure. Passing this gate permits the workflow transition only; it does not perform a deployment.
 
+At `Deployment Ready`, preview a configured Vercel deployment with:
+
+`./factory deploy project-name --dry-run`
+
+Only after reviewing that output may a human explicitly authorize production deployment with:
+
+`./factory deploy project-name --confirm DEPLOY`
+
+The adapter must reuse an existing Vercel project link and authenticated CLI session. It must not install tools, create or relink projects, accept tokens as command arguments, or mark the workflow `Deployed` until the returned HTTPS page is verified.
+
 Deployment responsibilities will be handled by the deployment workflow and deployment tooling configured for the project.
 
 Potential targets include:

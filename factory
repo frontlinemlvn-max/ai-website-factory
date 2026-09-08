@@ -17,6 +17,8 @@ Usage:
   ./factory handoff <project-name>
   ./factory advance <project-name>
   ./factory approve <project-name> APPROVED
+  ./factory deploy <project-name> --dry-run
+  ./factory deploy <project-name> --confirm DEPLOY
   ./factory preview <project-name> [port]
   ./factory check <project-name>
 
@@ -31,6 +33,8 @@ Examples:
   ./factory handoff client-website
   ./factory advance client-website
   ./factory approve client-website APPROVED
+  ./factory deploy client-website --dry-run
+  ./factory deploy client-website --confirm DEPLOY
   ./factory preview factory-demo
   ./factory preview factory-demo 9000
   ./factory check factory-demo
@@ -175,6 +179,27 @@ case "$COMMAND" in
     [ -f "$WORKFLOW_CONTROLLER" ] || fail "workflow controller is missing at $WORKFLOW_CONTROLLER."
 
     exec python3 "$WORKFLOW_CONTROLLER" approve "$PROJECT_NAME" "$PROJECT_DIR" "$3"
+    ;;
+  deploy)
+    if [ "$#" -eq 3 ] && [ "$3" = "--dry-run" ]; then
+      DEPLOY_MODE="dry-run"
+    elif [ "$#" -eq 4 ] && [ "$3" = "--confirm" ]; then
+      DEPLOY_MODE="deploy"
+    else
+      usage >&2
+      exit 1
+    fi
+
+    prepare_project_directory "$2"
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to control deployments."
+
+    DEPLOYER="$FACTORY_ROOT/tools/deployment-adapter.py"
+    [ -f "$DEPLOYER" ] || fail "deployment adapter is missing at $DEPLOYER."
+
+    if [ "$DEPLOY_MODE" = "dry-run" ]; then
+      exec python3 "$DEPLOYER" dry-run "$PROJECT_NAME" "$PROJECT_DIR"
+    fi
+    exec python3 "$DEPLOYER" deploy "$PROJECT_NAME" "$PROJECT_DIR" "$4"
     ;;
   preview)
     if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then

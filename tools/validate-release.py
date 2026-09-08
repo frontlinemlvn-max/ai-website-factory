@@ -77,7 +77,7 @@ class Results:
             print("No deployment was performed.", file=sys.stderr)
             return 1
 
-        print("\nPASSED: the approved project is ready to enter Deployment Ready.")
+        print("\nPASSED: release requirements are satisfied.")
         print("No deployment was performed.")
         return 0
 
@@ -119,10 +119,12 @@ def validate_status(project_directory, results):
         return
 
     stage = first_content_line(sections.get("Current Stage", ""))
-    if stage == "Approved":
-        results.pass_check("project stage is Approved")
+    if stage in ("Approved", "Deployment Ready"):
+        results.pass_check(f"project stage is {stage}")
     else:
-        results.fail_check(f"project stage is '{stage or 'not documented'}', expected Approved")
+        results.fail_check(
+            f"project stage is '{stage or 'not documented'}', expected Approved or Deployment Ready"
+        )
 
     blockers = first_content_line(sections.get("Blockers", ""))
     if blockers.lower().startswith(("none", "no blocker")):

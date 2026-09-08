@@ -144,6 +144,24 @@ After approval, verify the release package before entering `Deployment Ready`:
 
 The release validator confirms the recorded human approval, checks for active blockers, validates the deployment and rollback documentation, reruns the static project checks, and scans project files for sensitive filenames and high-confidence secret patterns without displaying secret values. `./factory next` and `./factory advance` run this gate automatically for an `Approved` project. Passing the gate allows the workflow to enter `Deployment Ready`; it never deploys the project.
 
+## Deploy safely to Vercel
+
+At `Deployment Ready`, preview the exact local deployment target without contacting Vercel:
+
+```bash
+./factory deploy client-website --dry-run
+```
+
+The dry run rechecks release readiness, requires an existing `.vercel/project.json` link, confirms Vercel is the documented platform, identifies the linked organization and project, checks any documented Vercel IDs for a match, counts deployable files, and reports whether Vercel CLI is installed. Vercel organization and project IDs are identifiers, not authentication credentials. The command never installs tools, authenticates, links a project, deploys, or changes project files.
+
+After reviewing the dry run, explicitly authorize a production deployment with:
+
+```bash
+./factory deploy client-website --confirm DEPLOY
+```
+
+The live path requires the exact `DEPLOY` confirmation, an existing authenticated Vercel CLI, and the existing linked project. It runs a noninteractive production deployment, reads the deployment URL from Vercel, verifies that the HTTPS URL returns HTML successfully, records the result in `documentation/DEPLOYMENT.md`, and only then moves the workflow to `Deployed`. Authentication tokens are never accepted as command arguments or printed.
+
 ## Local project previews
 
 From the factory root, start a safe local preview with:
