@@ -208,18 +208,30 @@ def gate_errors(project_name, project_directory, stage, sections, allow_human_ap
     if has_blockers(sections):
         errors.append("PROJECT-STATUS.md contains active blockers")
 
-    validator = FACTORY_ROOT / "tools" / "validate-stage.py"
-    if not validator.is_file():
-        errors.append("project stage validator is missing")
+    if stage == "Approved":
+        validator = FACTORY_ROOT / "tools" / "validate-release.py"
+        validator_command = [sys.executable, str(validator), project_name, str(project_directory)]
+        validator_error = f"release validation is failing; run './factory validate-release {project_name}'"
     else:
-        result = run_tool([sys.executable, str(validator), project_name, str(project_directory), stage])
+        validator = FACTORY_ROOT / "tools" / "validate-stage.py"
+        validator_command = [
+            sys.executable,
+            str(validator),
+            project_name,
+            str(project_directory),
+            stage,
+        ]
+        validator_error = f"stage validation is failing; run './factory validate-stage {project_name}'"
+
+    if not validator.is_file():
+        errors.append(f"workflow validator is missing at {validator.relative_to(FACTORY_ROOT)}")
+    else:
+        result = run_tool(validator_command)
         if result.returncode != 0:
-            errors.append(f"stage validation is failing; run './factory validate-stage {project_name}'")
+            errors.append(validator_error)
 
     if stage == "Ready for Human Approval" and not allow_human_approval:
         errors.append("generic advancement cannot grant human approval")
-    elif stage == "Approved":
-        errors.append("the release-readiness gate is not built yet")
     elif stage == "Deployment Ready":
         errors.append("generic advancement cannot deploy a production project")
     elif stage == "Blocked":

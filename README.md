@@ -134,6 +134,16 @@ After Final Review passes and the project has advanced to `Ready for Human Appro
 
 The final `APPROVED` confirmation is case-sensitive and intentional. The command revalidates launch readiness, refuses projects in any other stage or with active blockers, and records the UTC decision time and evidence in `PROJECT-STATUS.md`. Approval moves the project to `Approved` for release preparation; it does not deploy the project. Production deployment always requires a separate explicit instruction.
 
+## Validate release readiness
+
+After approval, verify the release package before entering `Deployment Ready`:
+
+```bash
+./factory validate-release client-website
+```
+
+The release validator confirms the recorded human approval, checks for active blockers, validates the deployment and rollback documentation, reruns the static project checks, and scans project files for sensitive filenames and high-confidence secret patterns without displaying secret values. `./factory next` and `./factory advance` run this gate automatically for an `Approved` project. Passing the gate allows the workflow to enter `Deployment Ready`; it never deploys the project.
+
 ## Local project previews
 
 From the factory root, start a safe local preview with:

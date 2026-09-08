@@ -551,6 +551,12 @@ The exact `APPROVED` confirmation is required. This records the decision and per
 
 Deployment occurs only after approval.
 
+Before a project can enter `Deployment Ready`, run:
+
+`./factory validate-release project-name`
+
+The release gate verifies the approval record, active blockers, deployment and rollback documentation, project integrity checks, and likely secret exposure. Passing this gate permits the workflow transition only; it does not perform a deployment.
+
 Deployment responsibilities will be handled by the deployment workflow and deployment tooling configured for the project.
 
 Potential targets include:
