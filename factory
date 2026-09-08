@@ -13,6 +13,7 @@ Usage:
   ./factory validate-brief <project-name>
   ./factory validate-stage <project-name>
   ./factory next <project-name>
+  ./factory handoff <project-name>
   ./factory advance <project-name>
   ./factory preview <project-name> [port]
   ./factory check <project-name>
@@ -24,6 +25,7 @@ Examples:
   ./factory validate-brief factory-demo
   ./factory validate-stage factory-demo
   ./factory next factory-demo
+  ./factory handoff client-website
   ./factory advance client-website
   ./factory preview factory-demo
   ./factory preview factory-demo 9000
@@ -128,7 +130,7 @@ case "$COMMAND" in
 
     exec python3 "$STAGE_VALIDATOR" "$PROJECT_NAME" "$PROJECT_DIR"
     ;;
-  next|advance)
+  next|handoff|advance)
     if [ "$#" -ne 2 ]; then
       usage >&2
       exit 1

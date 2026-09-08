@@ -108,6 +108,14 @@ Show the current stage, next stage, responsible agent, required output, and whet
 ./factory next client-website
 ```
 
+When the gate is ready, create a focused work package for the next specialist agent:
+
+```bash
+./factory handoff client-website
+```
+
+The command writes `projects/client-website/HANDOFF.md` with the source and destination stages, responsible agents, relevant files, requirements, assumptions, known issues, blockers, required output, and definition of done. It runs the existing transition gate first, does not advance the project, and refuses blocked or completed workflows. Generated handoffs can be refreshed safely; a manually created `HANDOFF.md` will not be overwritten.
+
 After completing the required output, advance exactly one stage:
 
 ```bash

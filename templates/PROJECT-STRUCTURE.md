@@ -17,6 +17,7 @@ projects/
 └── project-name/
     ├── PROJECT-BRIEF.md
     ├── PROJECT-STATUS.md
+    ├── HANDOFF.md          # Generated when a workflow gate is ready
     │
     ├── architecture/
     │   └── ARCHITECTURE.md
