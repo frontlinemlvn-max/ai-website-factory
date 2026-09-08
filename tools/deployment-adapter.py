@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Safely preview or perform a confirmed production deployment."""
+"""Safely preview or perform confirmed Vercel deployments and rollbacks."""
 
 from datetime import datetime, timezone
 import json
@@ -13,7 +13,7 @@ import subprocess
 import sys
 import tempfile
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 
 
@@ -28,6 +28,10 @@ class DeploymentError(Exception):
 
 class DeploymentUnverified(DeploymentError):
     """A remote deployment may exist but needs human attention."""
+
+
+class RollbackUnverified(DeploymentError):
+    """A rollback may have changed production but needs human attention."""
 
 
 def run_tool(command, timeout=None):
@@ -392,11 +396,390 @@ def deploy(project_name, project_directory, confirmation):
     print("Workflow stage: Deployed")
 
 
+def normalize_rollback_target(target):
+    if re.fullmatch(r"dpl_[A-Za-z0-9]+", target):
+        return target
+
+    try:
+        parsed = urlsplit(target)
+        port = parsed.port
+    except ValueError as error:
+        raise DeploymentError("rollback target is not a valid deployment ID or HTTPS URL") from error
+
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username
+        or parsed.password
+        or port is not None
+        or parsed.path not in ("", "/")
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise DeploymentError("rollback target must be a Vercel deployment ID or a plain HTTPS deployment URL")
+    return parsed.hostname
+
+
+def documented_production_urls(deployment_sections):
+    candidates = []
+    for heading in ("Post-Deployment Verification", "Deployment Platform"):
+        for match in DEPLOYMENT_URL.findall(deployment_sections.get(heading, "")):
+            candidate = match.rstrip("`.,;)]}")
+            parsed = urlsplit(candidate)
+            if parsed.scheme == "https" and parsed.netloc and candidate not in candidates:
+                candidates.append(candidate)
+    return candidates
+
+
+def run_vercel(command, link, timeout=None):
+    environment = os.environ.copy()
+    environment["NO_COLOR"] = "1"
+    environment["VERCEL_ORG_ID"] = link["orgId"]
+    environment["VERCEL_PROJECT_ID"] = link["projectId"]
+    return subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=timeout,
+        env=environment,
+    )
+
+
+def prepare_rollback_local(project_name, project_directory, target):
+    projects_root = (FACTORY_ROOT / "projects").resolve()
+    if project_directory.is_symlink():
+        raise DeploymentError("project directory must not be a symbolic link")
+    try:
+        project_directory.resolve().relative_to(projects_root)
+    except ValueError as error:
+        raise DeploymentError("project directory resolves outside the factory projects directory") from error
+
+    status_file = project_directory / "PROJECT-STATUS.md"
+    deployment_file = project_directory / "documentation" / "DEPLOYMENT.md"
+    try:
+        status_text, status_sections = read_sections(status_file)
+        deployment_text, deployment_sections = read_sections(deployment_file)
+    except (OSError, UnicodeDecodeError) as error:
+        raise DeploymentError(f"required deployment documentation could not be read: {error}") from error
+
+    stage = first_content_line(status_sections.get("Current Stage", ""))
+    if stage != "Deployed":
+        raise DeploymentError(f"project stage is '{stage or 'not documented'}', expected Deployed")
+
+    validator = FACTORY_ROOT / "tools" / "validate-stage.py"
+    if not validator.is_file():
+        raise DeploymentError("project stage validator is missing")
+    validation = run_tool(
+        [sys.executable, str(validator), project_name, str(project_directory), "Deployed"]
+    )
+    if validation.returncode != 0:
+        raise DeploymentError(
+            f"deployed project validation is failing; run './factory validate-stage {project_name}'"
+        )
+
+    platform_documentation = deployment_sections.get("Deployment Platform", "")
+    platform = first_content_line(platform_documentation).lstrip("*_ ")
+    if not re.match(r"(?i)^vercel\b", platform):
+        raise DeploymentError("the documented deployment platform is not a supported Vercel target")
+
+    deployment_root = vercel_deployment_root(project_directory)
+    link = validate_vercel_link(deployment_root)
+    validate_documented_target(platform_documentation, link)
+    target_lookup = normalize_rollback_target(target)
+    production_urls = documented_production_urls(deployment_sections)
+    if not production_urls:
+        raise DeploymentError("DEPLOYMENT.md does not contain a verified production HTTPS URL")
+
+    for heading in ("Current Stage", "Current Owner", "Active Work", "Next Action"):
+        replace_section(status_text, heading, status_sections.get(heading, ""))
+    if "Rollback" not in deployment_sections:
+        raise DeploymentError("DEPLOYMENT.md is missing the 'Rollback' section")
+
+    return {
+        "project_name": project_name,
+        "project_directory": project_directory,
+        "status_file": status_file,
+        "status_text": status_text,
+        "status_sections": status_sections,
+        "deployment_file": deployment_file,
+        "deployment_text": deployment_text,
+        "deployment_sections": deployment_sections,
+        "deployment_root": deployment_root,
+        "vercel_link": link,
+        "target_input": target,
+        "target_lookup": target_lookup,
+        "production_urls": production_urls,
+    }
+
+
+def inspect_rollback_target(vercel, prepared):
+    link = prepared["vercel_link"]
+    try:
+        identity = run_vercel(
+            [vercel, "whoami", "--cwd", str(prepared["deployment_root"]), "--no-color"],
+            link,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise DeploymentError("Vercel authentication check timed out") from error
+    if identity.returncode != 0:
+        raise DeploymentError("Vercel CLI is not authenticated; run 'vercel login' manually")
+
+    endpoint_target = quote(prepared["target_lookup"], safe="")
+    endpoint_team = quote(link["orgId"], safe="")
+    endpoint = f"/v13/deployments/{endpoint_target}?teamId={endpoint_team}"
+    try:
+        result = run_vercel([vercel, "api", endpoint], link, timeout=60)
+    except subprocess.TimeoutExpired as error:
+        raise DeploymentError("Vercel deployment inspection timed out") from error
+    if result.returncode != 0:
+        raise DeploymentError("Vercel could not inspect the requested rollback target")
+
+    try:
+        deployment = json.loads(result.stdout)
+    except (TypeError, json.JSONDecodeError) as error:
+        raise DeploymentError("Vercel returned an unreadable rollback target record") from error
+    if not isinstance(deployment, dict):
+        raise DeploymentError("Vercel returned an invalid rollback target record")
+
+    deployment_id = deployment.get("id") or deployment.get("uid")
+    deployment_url_value = deployment.get("url")
+    if not isinstance(deployment_id, str) or not re.fullmatch(r"dpl_[A-Za-z0-9]+", deployment_id):
+        raise DeploymentError("the rollback target record has no valid deployment ID")
+    if not isinstance(deployment_url_value, str) or not deployment_url_value.strip():
+        raise DeploymentError("the rollback target record has no deployment URL")
+    deployment_url_value = deployment_url_value.strip()
+    deployment_url = (
+        deployment_url_value
+        if deployment_url_value.startswith("https://")
+        else f"https://{deployment_url_value}"
+    )
+    try:
+        parsed_deployment_url = urlsplit(deployment_url)
+        deployment_port = parsed_deployment_url.port
+    except ValueError as error:
+        raise DeploymentError("the rollback target record has an invalid deployment URL") from error
+    if (
+        parsed_deployment_url.scheme != "https"
+        or not parsed_deployment_url.hostname
+        or parsed_deployment_url.username
+        or parsed_deployment_url.password
+        or deployment_port is not None
+        or parsed_deployment_url.path not in ("", "/")
+        or parsed_deployment_url.query
+        or parsed_deployment_url.fragment
+    ):
+        raise DeploymentError("the rollback target record has an invalid deployment URL")
+
+    if deployment.get("projectId") != link["projectId"]:
+        raise DeploymentError("the rollback target belongs to a different Vercel project")
+    team = deployment.get("team")
+    team_id = team.get("id") if isinstance(team, dict) else deployment.get("teamId")
+    if team_id != link["orgId"]:
+        raise DeploymentError("the rollback target belongs to a different Vercel organization")
+    if str(deployment.get("readyState", "")).upper() != "READY":
+        raise DeploymentError("the rollback target is not in the READY state")
+    if str(deployment.get("target", "")).lower() != "production":
+        raise DeploymentError("the rollback target is not a production deployment")
+    if prepared["target_lookup"].startswith("dpl_") and deployment_id != prepared["target_lookup"]:
+        raise DeploymentError("Vercel returned a different deployment than the requested rollback target")
+    if not prepared["target_lookup"].startswith("dpl_") and (
+        parsed_deployment_url.hostname != prepared["target_lookup"]
+    ):
+        raise DeploymentError("Vercel returned a different deployment than the requested rollback target")
+
+    return {
+        "id": deployment_id,
+        "url": f"https://{parsed_deployment_url.hostname}",
+        "project_id": deployment["projectId"],
+        "ready_state": "READY",
+        "target": "production",
+    }
+
+
+def prepare_rollback(project_name, project_directory, target):
+    prepared = prepare_rollback_local(project_name, project_directory, target)
+    vercel = shutil.which("vercel")
+    if not vercel:
+        raise DeploymentError("Vercel CLI is not installed; install it manually and run 'vercel login' first")
+    prepared["vercel"] = vercel
+    prepared["target"] = inspect_rollback_target(vercel, prepared)
+    return prepared
+
+
+def display_rollback_dry_run(project_name, prepared):
+    target = prepared["target"]
+    print(f"Rollback dry run: {project_name}")
+    print("  Stage: Deployed")
+    print("  Platform: Vercel")
+    print(f"  Vercel organization: {prepared['vercel_link']['orgId']}")
+    print(f"  Vercel project: {prepared['vercel_link']['projectId']}")
+    print(f"  Restore deployment: {target['id']}")
+    print(f"  Restore URL: {target['url']}")
+    print("  Restore status: READY production deployment")
+    print("  Production URLs to verify:")
+    for url in prepared["production_urls"]:
+        print(f"    - {url}")
+    print("  Warning: Vercel restores the target's build, configuration, environment, and cron state.")
+    print("  Warning: Instant Rollback disables automatic production-domain assignment until it is undone.")
+    print(
+        f"  Live command: ./factory rollback {project_name} {target['id']} --confirm ROLLBACK"
+    )
+    print("DRY RUN PASSED: the target was inspected; no rollback or project update was performed.")
+
+
+def rollback_records(prepared, verification_results, recorded_at):
+    target = prepared["target"]
+    previous_rollback = prepared["deployment_sections"].get("Rollback", "").strip()
+    verification_lines = []
+    for requested_url, status_code, final_url in verification_results:
+        verification_lines.append(
+            f"- **Verified production URL:** {requested_url} — HTTP {status_code}, final URL {final_url}"
+        )
+
+    rollback_record = "\n".join(
+        (
+            f"Rollback completed and verified on {recorded_at} after an explicit `ROLLBACK` confirmation.",
+            "",
+            f"- **Restored deployment:** `{target['id']}`",
+            f"- **Restored deployment URL:** {target['url']}",
+            f"- **Vercel organization:** `{prepared['vercel_link']['orgId']}`",
+            f"- **Vercel project:** `{prepared['vercel_link']['projectId']}`",
+            "- **Rollback status:** completed",
+            "- **Automatic production-domain assignment:** disabled by Instant Rollback until explicitly undone",
+            *verification_lines,
+            "",
+            "### Previous rollback plan and history",
+            "",
+            previous_rollback or "No earlier rollback plan or record was documented.",
+        )
+    )
+    deployment_text = replace_section(prepared["deployment_text"], "Rollback", rollback_record)
+
+    status_text = prepared["status_text"]
+    status_text = replace_section(status_text, "Current Stage", "Deployed")
+    status_text = replace_section(status_text, "Current Owner", "None — rollback complete.")
+    status_text = replace_section(
+        status_text,
+        "Active Work",
+        f"None. Production rollback to {target['id']} completed and was verified.",
+    )
+    status_text = replace_section(
+        status_text,
+        "Next Action",
+        "Monitor the restored production site. Investigate the failed release through QA → Debugging → QA before any new deployment.",
+    )
+    return deployment_text, status_text
+
+
+def rollback(project_name, project_directory, target, confirmation):
+    if confirmation != "ROLLBACK":
+        raise DeploymentError(
+            "confirmation must be exactly 'ROLLBACK'; "
+            f"use './factory rollback {project_name} {target} --confirm ROLLBACK'"
+        )
+
+    prepared = prepare_rollback(project_name, project_directory, target)
+    vercel = prepared["vercel"]
+    link = prepared["vercel_link"]
+    deployment_id = prepared["target"]["id"]
+    try:
+        result = run_vercel(
+            [
+                vercel,
+                "rollback",
+                deployment_id,
+                "--timeout",
+                "3m",
+                "--non-interactive",
+                "--cwd",
+                str(prepared["deployment_root"]),
+                "--no-color",
+            ],
+            link,
+            timeout=240,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise RollbackUnverified(
+            "the rollback command timed out and production state is unknown; "
+            "check 'vercel rollback status' before taking another action"
+        ) from error
+    if result.returncode != 0:
+        raise RollbackUnverified(
+            "Vercel returned an error after the rollback request; production state is unknown, "
+            "so check 'vercel rollback status' before retrying"
+        )
+
+    try:
+        status = run_vercel(
+            [
+                vercel,
+                "rollback",
+                "status",
+                link["projectId"],
+                "--timeout",
+                "30s",
+                "--non-interactive",
+                "--cwd",
+                str(prepared["deployment_root"]),
+                "--no-color",
+            ],
+            link,
+            timeout=45,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise RollbackUnverified(
+            "Vercel accepted the rollback, but its final status check timed out"
+        ) from error
+    if status.returncode != 0:
+        raise RollbackUnverified("Vercel accepted the rollback, but completion could not be confirmed")
+
+    verification_results = []
+    try:
+        for production_url in prepared["production_urls"]:
+            status_code, final_url = verify_deployment(production_url)
+            verification_results.append((production_url, status_code, final_url))
+    except DeploymentError as error:
+        raise RollbackUnverified(
+            f"Vercel completed the rollback, but production verification failed ({error})"
+        ) from error
+
+    recorded_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    deployment_text, status_text = rollback_records(prepared, verification_results, recorded_at)
+    try:
+        write_atomic(prepared["deployment_file"], deployment_text, ".DEPLOYMENT.")
+        write_atomic(prepared["status_file"], status_text, ".PROJECT-STATUS.")
+    except OSError as error:
+        raise RollbackUnverified(
+            "the production rollback succeeded, but the local rollback record could not be completed"
+        ) from error
+
+    print(f"Production rollback verified: {project_name}")
+    print(f"Restored deployment: {deployment_id}")
+    print(f"Restored deployment URL: {prepared['target']['url']}")
+    for requested_url, status_code, final_url in verification_results:
+        print(f"Verified: {requested_url} -> {final_url} (HTTP {status_code})")
+    print("Workflow stage: Deployed")
+
+
 def main():
-    if len(sys.argv) not in (4, 5) or sys.argv[1] not in ("dry-run", "deploy"):
+    usage = (
+        "Usage: deployment-adapter.py dry-run <project-name> <project-directory>\n"
+        "       deployment-adapter.py deploy <project-name> <project-directory> DEPLOY\n"
+        "       deployment-adapter.py rollback-dry-run <project-name> <project-directory> "
+        "<deployment-id-or-url>\n"
+        "       deployment-adapter.py rollback <project-name> <project-directory> "
+        "<deployment-id-or-url> ROLLBACK"
+    )
+    valid_shape = (
+        len(sys.argv) == 4 and sys.argv[1] == "dry-run"
+        or len(sys.argv) == 5 and sys.argv[1] in ("deploy", "rollback-dry-run")
+        or len(sys.argv) == 6 and sys.argv[1] == "rollback"
+    )
+    if not valid_shape:
         print(
-            "Usage: deployment-adapter.py dry-run <project-name> <project-directory>\n"
-            "       deployment-adapter.py deploy <project-name> <project-directory> DEPLOY",
+            usage,
             file=sys.stderr,
         )
         return 2
@@ -410,20 +793,25 @@ def main():
 
     try:
         if mode == "dry-run":
-            if len(sys.argv) != 4:
-                raise DeploymentError("dry-run does not accept a confirmation value")
             prepared = prepare(project_name, project_directory)
             display_dry_run(project_name, project_directory, prepared)
-        else:
-            if len(sys.argv) != 5:
-                raise DeploymentError("live deployment requires the exact DEPLOY confirmation")
+        elif mode == "deploy":
             deploy(project_name, project_directory, sys.argv[4])
+        elif mode == "rollback-dry-run":
+            prepared = prepare_rollback(project_name, project_directory, sys.argv[4])
+            display_rollback_dry_run(project_name, prepared)
+        else:
+            rollback(project_name, project_directory, sys.argv[4], sys.argv[5])
         return 0
+    except RollbackUnverified as error:
+        print(f"ROLLBACK REQUIRES ATTENTION: {error}.", file=sys.stderr)
+        return 1
     except DeploymentUnverified as error:
         print(f"DEPLOYMENT REQUIRES ATTENTION: {error}.", file=sys.stderr)
         return 1
     except DeploymentError as error:
-        print(f"NOT DEPLOYED: {error}.", file=sys.stderr)
+        label = "NOT ROLLED BACK" if mode.startswith("rollback") else "NOT DEPLOYED"
+        print(f"{label}: {error}.", file=sys.stderr)
         return 1
 
 

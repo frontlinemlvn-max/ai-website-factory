@@ -19,6 +19,8 @@ Usage:
   ./factory approve <project-name> APPROVED
   ./factory deploy <project-name> --dry-run
   ./factory deploy <project-name> --confirm DEPLOY
+  ./factory rollback <project-name> <deployment-id-or-url> --dry-run
+  ./factory rollback <project-name> <deployment-id-or-url> --confirm ROLLBACK
   ./factory preview <project-name> [port]
   ./factory check <project-name>
   ./factory test
@@ -36,6 +38,8 @@ Examples:
   ./factory approve client-website APPROVED
   ./factory deploy client-website --dry-run
   ./factory deploy client-website --confirm DEPLOY
+  ./factory rollback client-website dpl_previousDeployment --dry-run
+  ./factory rollback client-website dpl_previousDeployment --confirm ROLLBACK
   ./factory preview factory-demo
   ./factory preview factory-demo 9000
   ./factory check factory-demo
@@ -202,6 +206,27 @@ case "$COMMAND" in
       exec python3 "$DEPLOYER" dry-run "$PROJECT_NAME" "$PROJECT_DIR"
     fi
     exec python3 "$DEPLOYER" deploy "$PROJECT_NAME" "$PROJECT_DIR" "$4"
+    ;;
+  rollback)
+    if [ "$#" -eq 4 ] && [ "$4" = "--dry-run" ]; then
+      ROLLBACK_MODE="rollback-dry-run"
+    elif [ "$#" -eq 5 ] && [ "$4" = "--confirm" ]; then
+      ROLLBACK_MODE="rollback"
+    else
+      usage >&2
+      exit 1
+    fi
+
+    prepare_project_directory "$2"
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to control rollbacks."
+
+    DEPLOYER="$FACTORY_ROOT/tools/deployment-adapter.py"
+    [ -f "$DEPLOYER" ] || fail "deployment adapter is missing at $DEPLOYER."
+
+    if [ "$ROLLBACK_MODE" = "rollback-dry-run" ]; then
+      exec python3 "$DEPLOYER" rollback-dry-run "$PROJECT_NAME" "$PROJECT_DIR" "$3"
+    fi
+    exec python3 "$DEPLOYER" rollback "$PROJECT_NAME" "$PROJECT_DIR" "$3" "$5"
     ;;
   preview)
     if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then

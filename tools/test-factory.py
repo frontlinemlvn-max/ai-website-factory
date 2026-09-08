@@ -4,6 +4,8 @@
 
 from dataclasses import dataclass
 import hashlib
+import importlib.util
+import json
 import os
 from pathlib import Path
 import shutil
@@ -13,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from types import SimpleNamespace
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -187,7 +190,7 @@ Run the factory deployment dry run first and review the displayed organization, 
 
 ## Post-Deployment Verification
 
-After a real release, confirm that the returned HTTPS address responds successfully with an HTML document and record the result. The regression suite stops at a local fake authentication check and performs no remote release.
+Verified production URL: https://suite-production.invalid. After a real release, confirm that the returned HTTPS address responds successfully with an HTML document and record the result. The regression suite uses local fakes and performs no remote release.
 
 ## Rollback
 
@@ -352,6 +355,46 @@ class FactorySuite:
     def prepare_fake_vercel(self):
         script = """#!/bin/sh
 printf '%s\\n' "$*" >> "$FACTORY_TEST_VERCEL_LOG"
+if [ "${FACTORY_TEST_VERCEL_MODE:-}" = "inspect" ]; then
+  if [ "$1" = "whoami" ]; then
+    printf '%s\\n' "factory-suite-user"
+    exit 0
+  fi
+  if [ "$1" = "api" ]; then
+    printf '%s\\n' '{"id":"dpl_PreviousFactorySuite","url":"suite-previous.vercel.app","projectId":"prj_FactorySuite","team":{"id":"team_FactorySuite"},"readyState":"READY","target":"production"}'
+    exit 0
+  fi
+fi
+if [ "${FACTORY_TEST_VERCEL_MODE:-}" = "mismatch" ]; then
+  if [ "$1" = "whoami" ]; then
+    printf '%s\\n' "factory-suite-user"
+    exit 0
+  fi
+  if [ "$1" = "api" ]; then
+    printf '%s\\n' '{"id":"dpl_PreviousFactorySuite","url":"other-project.vercel.app","projectId":"prj_OtherProject","team":{"id":"team_FactorySuite"},"readyState":"READY","target":"production"}'
+    exit 0
+  fi
+fi
+if [ "${FACTORY_TEST_VERCEL_MODE:-}" = "missing-org" ]; then
+  if [ "$1" = "whoami" ]; then
+    printf '%s\n' "factory-suite-user"
+    exit 0
+  fi
+  if [ "$1" = "api" ]; then
+    printf '%s\n' '{"id":"dpl_PreviousFactorySuite","url":"suite-previous.vercel.app","projectId":"prj_FactorySuite","readyState":"READY","target":"production"}'
+    exit 0
+  fi
+fi
+if [ "${FACTORY_TEST_VERCEL_MODE:-}" = "wrong-url" ]; then
+  if [ "$1" = "whoami" ]; then
+    printf '%s\n' "factory-suite-user"
+    exit 0
+  fi
+  if [ "$1" = "api" ]; then
+    printf '%s\n' '{"id":"dpl_PreviousFactorySuite","url":"different.vercel.app","projectId":"prj_FactorySuite","team":{"id":"team_FactorySuite"},"readyState":"READY","target":"production"}'
+    exit 0
+  fi
+fi
 exit 1
 """
         write_text(self.fake_bin / "vercel", script, executable=True)
@@ -404,7 +447,15 @@ def run_suite(suite):
 
     def help_case():
         result = suite.run("--help")
-        suite.expect(result, 0, "./factory create", "./factory deploy", "./factory preview", "./factory test")
+        suite.expect(
+            result,
+            0,
+            "./factory create",
+            "./factory deploy",
+            "./factory rollback",
+            "./factory preview",
+            "./factory test",
+        )
 
     suite.case("help lists every public command", help_case)
     suite.case(
@@ -586,6 +637,220 @@ def run_suite(suite):
         require(fingerprint_tree(suite.project) == before, "failed authentication changed project files")
 
     suite.case("deployment stops safely when authentication fails", unauthenticated_deploy_case)
+
+    rollback_target = "dpl_PreviousFactorySuite"
+    inspected_environment = {**fake_environment, "FACTORY_TEST_VERCEL_MODE": "inspect"}
+    mismatch_environment = {**fake_environment, "FACTORY_TEST_VERCEL_MODE": "mismatch"}
+    missing_org_environment = {**fake_environment, "FACTORY_TEST_VERCEL_MODE": "missing-org"}
+    wrong_url_environment = {**fake_environment, "FACTORY_TEST_VERCEL_MODE": "wrong-url"}
+
+    def undeployed_rollback_case():
+        if suite.vercel_log.exists():
+            suite.vercel_log.unlink()
+        before = fingerprint_tree(suite.project)
+        result = suite.run(
+            "rollback",
+            PROJECT_NAME,
+            rollback_target,
+            "--dry-run",
+            environment=inspected_environment,
+        )
+        suite.expect(result, 1, "expected Deployed")
+        require(not suite.vercel_log.exists(), "Vercel was invoked for a project that is not deployed")
+        require(fingerprint_tree(suite.project) == before, "refused rollback changed project files")
+
+    suite.case("rollback requires a Deployed project", undeployed_rollback_case)
+    write_text(suite.status_file, status_document("Deployed"))
+
+    suite.case(
+        "deployed project validates before rollback",
+        lambda: suite.expect(suite.run("validate-stage", PROJECT_NAME), 0, "Deployed", "PASSED:"),
+    )
+
+    def unsafe_target_case():
+        if suite.vercel_log.exists():
+            suite.vercel_log.unlink()
+        result = suite.run(
+            "rollback",
+            PROJECT_NAME,
+            "https://suite-previous.vercel.app/path?unexpected=yes",
+            "--dry-run",
+            environment=inspected_environment,
+        )
+        suite.expect(result, 1, "plain HTTPS deployment URL")
+        require(not suite.vercel_log.exists(), "invalid target invoked Vercel")
+
+    suite.case("rollback rejects ambiguous target URLs", unsafe_target_case)
+
+    def wrong_rollback_confirmation_case():
+        if suite.vercel_log.exists():
+            suite.vercel_log.unlink()
+        before = fingerprint_tree(suite.project)
+        result = suite.run(
+            "rollback",
+            PROJECT_NAME,
+            rollback_target,
+            "--confirm",
+            "rollback",
+            environment=inspected_environment,
+        )
+        suite.expect(result, 1, "confirmation must be exactly 'ROLLBACK'")
+        require(not suite.vercel_log.exists(), "wrong rollback confirmation invoked Vercel")
+        require(fingerprint_tree(suite.project) == before, "wrong confirmation changed project files")
+
+    suite.case("rollback requires the exact confirmation", wrong_rollback_confirmation_case)
+
+    def mismatched_target_case():
+        if suite.vercel_log.exists():
+            suite.vercel_log.unlink()
+        before = fingerprint_tree(suite.project)
+        result = suite.run(
+            "rollback",
+            PROJECT_NAME,
+            rollback_target,
+            "--dry-run",
+            environment=mismatch_environment,
+        )
+        suite.expect(result, 1, "belongs to a different Vercel project")
+        invocations = suite.vercel_log.read_text(encoding="utf-8").splitlines()
+        require(any(line.startswith("api ") for line in invocations), "rollback target was not inspected")
+        require(not any(line.startswith("rollback ") for line in invocations), "mismatched target was rolled back")
+        require(fingerprint_tree(suite.project) == before, "target mismatch changed project files")
+
+    suite.case("rollback rejects a deployment from another project", mismatched_target_case)
+
+    def missing_organization_case():
+        if suite.vercel_log.exists():
+            suite.vercel_log.unlink()
+        before = fingerprint_tree(suite.project)
+        result = suite.run(
+            "rollback",
+            PROJECT_NAME,
+            rollback_target,
+            "--dry-run",
+            environment=missing_org_environment,
+        )
+        suite.expect(result, 1, "belongs to a different Vercel organization")
+        invocations = suite.vercel_log.read_text(encoding="utf-8").splitlines()
+        require(not any(line.startswith("rollback ") for line in invocations), "unscoped target was rolled back")
+        require(fingerprint_tree(suite.project) == before, "missing organization changed project files")
+
+    suite.case("rollback requires matching organization evidence", missing_organization_case)
+
+    def mismatched_url_case():
+        if suite.vercel_log.exists():
+            suite.vercel_log.unlink()
+        before = fingerprint_tree(suite.project)
+        result = suite.run(
+            "rollback",
+            PROJECT_NAME,
+            "https://suite-previous.vercel.app",
+            "--dry-run",
+            environment=wrong_url_environment,
+        )
+        suite.expect(result, 1, "returned a different deployment")
+        invocations = suite.vercel_log.read_text(encoding="utf-8").splitlines()
+        require(not any(line.startswith("rollback ") for line in invocations), "mismatched URL was rolled back")
+        require(fingerprint_tree(suite.project) == before, "URL mismatch changed project files")
+
+    suite.case("rollback requires an exact deployment URL match", mismatched_url_case)
+
+    def rollback_dry_run_case():
+        if suite.vercel_log.exists():
+            suite.vercel_log.unlink()
+        before = fingerprint_tree(suite.project)
+        result = suite.run(
+            "rollback",
+            PROJECT_NAME,
+            rollback_target,
+            "--dry-run",
+            environment=inspected_environment,
+        )
+        suite.expect(
+            result,
+            0,
+            "Rollback dry run",
+            "DRY RUN PASSED",
+            rollback_target,
+            "prj_FactorySuite",
+        )
+        invocations = suite.vercel_log.read_text(encoding="utf-8").splitlines()
+        require(any(line.startswith("whoami ") for line in invocations), "authentication was not checked")
+        require(any(line.startswith("api ") for line in invocations), "rollback target was not inspected")
+        require(not any(line.startswith("rollback ") for line in invocations), "dry run requested a rollback")
+        require(fingerprint_tree(suite.project) == before, "rollback dry run changed project files")
+
+    suite.case("rollback dry run inspects the exact target without mutation", rollback_dry_run_case)
+
+    def failed_rollback_case():
+        if suite.vercel_log.exists():
+            suite.vercel_log.unlink()
+        before = fingerprint_tree(suite.project)
+        result = suite.run(
+            "rollback",
+            PROJECT_NAME,
+            rollback_target,
+            "--confirm",
+            "ROLLBACK",
+            environment=inspected_environment,
+        )
+        suite.expect(result, 1, "ROLLBACK REQUIRES ATTENTION")
+        invocations = suite.vercel_log.read_text(encoding="utf-8").splitlines()
+        require(any(line.startswith(f"rollback {rollback_target} ") for line in invocations), "rollback was not requested")
+        require(fingerprint_tree(suite.project) == before, "failed rollback changed local records")
+
+    suite.case("rollback surfaces unknown remote state without local changes", failed_rollback_case)
+
+    def successful_rollback_record_case():
+        module_path = suite.root / "tools" / "deployment-adapter.py"
+        specification = importlib.util.spec_from_file_location("factory_deployment_adapter_test", module_path)
+        require(specification is not None and specification.loader is not None, "adapter could not be loaded")
+        module = importlib.util.module_from_spec(specification)
+        specification.loader.exec_module(module)
+
+        calls = []
+        original_which = module.shutil.which
+        original_run_vercel = module.run_vercel
+        original_verify = module.verify_deployment
+
+        def fake_run_vercel(command, link, timeout=None):
+            calls.append(command)
+            if command[1] == "api":
+                payload = {
+                    "id": rollback_target,
+                    "url": "suite-previous.vercel.app",
+                    "projectId": "prj_FactorySuite",
+                    "team": {"id": "team_FactorySuite"},
+                    "readyState": "READY",
+                    "target": "production",
+                }
+                return SimpleNamespace(returncode=0, stdout=json.dumps(payload), stderr="")
+            return SimpleNamespace(returncode=0, stdout="ok\n", stderr="")
+
+        try:
+            module.shutil.which = lambda command: "/fake/vercel" if command == "vercel" else original_which(command)
+            module.run_vercel = fake_run_vercel
+            module.verify_deployment = lambda url: (200, url)
+            module.rollback(PROJECT_NAME, suite.project, rollback_target, "ROLLBACK")
+        finally:
+            module.shutil.which = original_which
+            module.run_vercel = original_run_vercel
+            module.verify_deployment = original_verify
+
+        rollback_calls = [command for command in calls if len(command) > 1 and command[1] == "rollback"]
+        require(any(command[2] == rollback_target for command in rollback_calls), "rollback command was not issued")
+        require(any("--non-interactive" in command for command in rollback_calls), "rollback was interactive")
+        deployment_record = suite.deployment_file.read_text(encoding="utf-8")
+        status_record = suite.status_file.read_text(encoding="utf-8")
+        require(f"**Restored deployment:** `{rollback_target}`" in deployment_record, "rollback was not recorded")
+        require("HTTP 200" in deployment_record, "production verification was not recorded")
+        require("\nDeployed\n" in status_record, "rollback changed the deployed workflow stage")
+
+    suite.case("verified rollback is recorded while staying Deployed", successful_rollback_record_case)
+    suite.case(
+        "rollback record still passes deployed-stage validation",
+        lambda: suite.expect(suite.run("validate-stage", PROJECT_NAME), 0, "Deployed", "PASSED:"),
+    )
 
     suite.case(
         "check accepts a valid static site",

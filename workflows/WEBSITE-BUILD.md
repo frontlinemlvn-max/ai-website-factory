@@ -567,6 +567,18 @@ Only after reviewing that output may a human explicitly authorize production dep
 
 The adapter must reuse an existing Vercel project link and authenticated CLI session. It must not install tools, create or relink projects, accept tokens as command arguments, or mark the workflow `Deployed` until the returned HTTPS page is verified.
 
+If a verified production defect requires recovery after deployment, preview an explicit previous production deployment with:
+
+`./factory rollback project-name deployment-id-or-url --dry-run`
+
+Only after reviewing the linked project, inspected target, production URLs, and rollback effects may a human authorize the recovery with:
+
+`./factory rollback project-name deployment-id-or-url --confirm ROLLBACK`
+
+The rollback adapter must require the `Deployed` stage and exact `ROLLBACK` confirmation. Before any mutation it must authenticate through the existing Vercel CLI session and prove that the requested `READY` production deployment belongs to the organization and project in the existing local link. After the request it must confirm rollback status, verify the documented production HTTPS pages, preserve the `Deployed` workflow stage, and record the recovery. An uncertain remote result must be surfaced for human attention and must never be retried automatically.
+
+Vercel Instant Rollback restores the target deployment's earlier build, environment, and cron configuration and disables automatic production-domain assignment until explicitly undone. These effects must be presented during the dry run.
+
 Deployment responsibilities will be handled by the deployment workflow and deployment tooling configured for the project.
 
 Potential targets include:

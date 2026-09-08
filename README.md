@@ -162,6 +162,26 @@ After reviewing the dry run, explicitly authorize a production deployment with:
 
 The live path requires the exact `DEPLOY` confirmation, an existing authenticated Vercel CLI, and the existing linked project. It runs a noninteractive production deployment, reads the deployment URL from Vercel, verifies that the HTTPS URL returns HTML successfully, records the result in `documentation/DEPLOYMENT.md`, and only then moves the workflow to `Deployed`. Authentication tokens are never accepted as command arguments or printed.
 
+## Roll back a Vercel deployment safely
+
+For a project already in the `Deployed` stage, inspect the exact previous production deployment before restoring it:
+
+```bash
+./factory rollback client-website dpl_previousDeployment --dry-run
+```
+
+The rollback dry run performs authenticated, read-only Vercel checks. It confirms the existing local project link, verifies that the requested deployment belongs to the same Vercel organization and project, and requires the target to be a `READY` production deployment. It reports the target and the documented production URLs that will be checked afterward, but it does not request a rollback or change local project files.
+
+After reviewing that output, explicitly authorize the rollback with:
+
+```bash
+./factory rollback client-website dpl_previousDeployment --confirm ROLLBACK
+```
+
+The target may be a Vercel deployment ID or a plain HTTPS deployment URL. The live path requires the exact `ROLLBACK` confirmation, repeats every check, uses Vercel's noninteractive Instant Rollback command, confirms completion, verifies the documented production URLs return HTML over HTTPS, and records the result while keeping the workflow in `Deployed`. If Vercel accepts the request but completion or verification is uncertain, the command stops with `ROLLBACK REQUIRES ATTENTION` and does not rewrite local records.
+
+Instant Rollback restores the selected deployment's earlier build and configuration state, including its environment and cron configuration. Vercel also disables automatic assignment of production domains after a rollback until the rollback is explicitly undone by promoting a deployment. Review those effects in the dry run before confirming.
+
 ## Local project previews
 
 From the factory root, start a safe local preview with:
@@ -190,7 +210,7 @@ Before committing changes to the factory itself, run its isolated regression sui
 ./factory test
 ```
 
-The suite copies the factory into a temporary directory, creates a disposable project, and exercises every public command. It verifies project creation, status reporting, brief and stage validation, workflow handoffs and transitions, human approval, release readiness, deployment safeguards, static checks, and local previews. Vercel behavior is represented by a local fake executable: the suite never authenticates, contacts Vercel, deploys a project, or changes anything under the real `projects/` directory.
+The suite copies the factory into a temporary directory, creates a disposable project, and exercises every public command. It verifies project creation, status reporting, brief and stage validation, workflow handoffs and transitions, human approval, release readiness, deployment and rollback safeguards, static checks, and local previews. Vercel behavior is represented by a local fake executable: the suite never authenticates with or contacts Vercel, changes production, or modifies anything under the real `projects/` directory.
 
 ## Goal
 
