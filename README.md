@@ -74,6 +74,18 @@ From the factory root, create a new project scaffold with:
 
 The command validates the project name, refuses to overwrite an existing project, and creates the standard architecture, design, source, test, report, and documentation structure under `projects/`. After creation, complete the new project's `PROJECT-BRIEF.md` before beginning architecture or implementation.
 
+## Complete guided project intake
+
+While a project is still in the `Intake` stage, complete its brief through the guided questionnaire:
+
+```bash
+./factory intake client-website
+```
+
+The wizard covers every answer required by the brief validator, including goals, audience, website type, pages, features, branding, content, technical requirements, SEO, and constraints. Pressing Enter keeps an existing substantive answer, and entering `CANCEL` at any prompt exits without saving. The wizard collects answers in memory, validates the completed candidate before offering to save it, requires a final confirmation, writes the brief atomically, and runs the validator again afterward.
+
+Guided intake is intentionally restricted to the `Intake` stage so later work cannot have its requirements silently rewritten. Production approval is never collected by this command; it remains protected by the separate human approval gate.
+
 ## List projects and view status
 
 List every factory project and its current stage:
@@ -220,7 +232,7 @@ Before committing changes to the factory itself, run its isolated regression sui
 ./factory test
 ```
 
-The suite copies the factory into a temporary directory, creates a disposable project, and exercises every public command. It verifies factory health diagnostics, project creation, status reporting, brief and stage validation, workflow handoffs and transitions, human approval, release readiness, deployment and rollback safeguards, static checks, and local previews. Vercel behavior is represented by a local fake executable: the suite never authenticates with or contacts Vercel, changes production, or modifies anything under the real `projects/` directory.
+The suite copies the factory into a temporary directory, creates a disposable project, and exercises every public command. It verifies factory health diagnostics, project creation, guided intake, status reporting, brief and stage validation, workflow handoffs and transitions, human approval, release readiness, deployment and rollback safeguards, static checks, and local previews. Vercel behavior is represented by a local fake executable: the suite never authenticates with or contacts Vercel, changes production, or modifies anything under the real `projects/` directory.
 
 ## Goal
 

@@ -51,6 +51,16 @@ Example:
 
 `projects/example-project/PROJECT-BRIEF.md`
 
+Create the project and complete its required intake fields with:
+
+`./factory create example-project`
+
+`./factory intake example-project`
+
+The guided intake command is limited to the `Intake` stage, preserves existing answers by default, validates the completed brief before saving, and does not collect or imply production approval. Validate the saved result independently with:
+
+`./factory validate-brief example-project`
+
 The brief should define, when applicable:
 
 - Project name

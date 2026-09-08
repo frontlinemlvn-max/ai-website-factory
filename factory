@@ -9,6 +9,7 @@ usage() {
 Usage:
   ./factory doctor
   ./factory create <project-name>
+  ./factory intake <project-name>
   ./factory list
   ./factory status <project-name>
   ./factory validate-brief <project-name>
@@ -29,6 +30,7 @@ Usage:
 Examples:
   ./factory doctor
   ./factory create client-website
+  ./factory intake client-website
   ./factory list
   ./factory status factory-demo
   ./factory validate-brief factory-demo
@@ -102,6 +104,19 @@ case "$COMMAND" in
     [ -x "$INITIALIZER" ] || fail "project initializer is missing or not executable at $INITIALIZER."
 
     exec "$INITIALIZER" "$2"
+    ;;
+  intake)
+    if [ "$#" -ne 2 ]; then
+      usage >&2
+      exit 1
+    fi
+
+    prepare_project_directory "$2"
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to guide project intake."
+    INTAKE_TOOL="$FACTORY_ROOT/tools/project-intake.py"
+    [ -f "$INTAKE_TOOL" ] || fail "project intake tool is missing at $INTAKE_TOOL."
+
+    exec python3 "$INTAKE_TOOL" "$PROJECT_NAME" "$PROJECT_DIR"
     ;;
   list)
     if [ "$#" -ne 1 ]; then

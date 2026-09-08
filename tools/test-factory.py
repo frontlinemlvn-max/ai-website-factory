@@ -23,102 +23,6 @@ from urllib.request import urlopen
 FACTORY_ROOT = Path(__file__).resolve().parent.parent
 PROJECT_NAME = "suite-project"
 
-VALID_BRIEF = f"""# Project Brief
-
-## 1. Project Information
-
-**Project Name:** {PROJECT_NAME}
-**Client / Brand:** Factory Test Brand
-**Project Type:** Static marketing website
-**Target Launch Date:** 2030-01-01
-
-## 2. Project Goal
-
-**Primary Goal:** Verify that factory commands work safely in isolation.
-
-**Secondary Goals:**
-- Confirm repeatable project setup and validation.
-- Protect human approval and deployment boundaries.
-
-## 3. Target Audience
-
-**Primary Audience:** Factory maintainers testing local changes.
-**Location / Market:** Internal development environment
-
-**Audience Needs:**
-- Clear command results and safe failure messages.
-- Confidence that real projects remain unchanged.
-
-## 4. Website Type
-
-- [x] Landing Page
-- [ ] Business Website
-
-## 5. Required Pages
-
-- [x] Home
-- [ ] Contact
-
-## 6. Required Features
-
-- A semantic static page with local styling.
-- A working in-page navigation link.
-
-## 7. Branding
-
-**Brand Name:** Factory Test Brand
-**Logo Available:** No
-**Primary Colors:** Navy and white
-**Secondary Colors:** Neutral slate
-**Typography:** System sans serif
-**Brand Personality:** Clear, reliable, and practical
-
-## 8. Design Direction
-
-**Desired Style:** Minimal responsive technical interface
-
-## 9. Content
-
-**Content Provided By:** Factory maintainers
-
-## 10. Technical Requirements
-
-**Domain:** suite.invalid
-**Hosting / Platform:** Vercel test target
-**Frontend:** Semantic HTML and CSS
-**Backend:** None required for this static test
-**Database:** None required for this static test
-**Third-Party Integrations:** None required for this static test
-
-## 11. SEO Requirements
-
-**Primary Keywords:** factory regression testing
-**Target Location:** Internal development environment
-
-## 12. Accessibility
-
-The page uses semantic landmarks, visible text, and keyboard-accessible links.
-
-## 13. Performance
-
-The page is intentionally small and uses no remote runtime dependencies.
-
-## 14. Deliverables
-
-The deliverable is a disposable static site used only by this regression suite.
-
-## 15. Constraints
-
-**Budget:** Internal test allocation
-**Deadline:** Complete during the local test run
-**Platform Restrictions:** Standard-library tooling only
-**Other Constraints:** Never touch a real project or production service
-
-## 16. Human Approval
-
-Production approval is intentionally handled by the workflow gate test.
-"""
-
 VALID_INDEX = """<!doctype html>
 <html lang="en">
 <head>
@@ -196,6 +100,43 @@ Verified production URL: https://suite-production.invalid. After a real release,
 
 Restore the last verified provider deployment if production verification fails, then confirm the HTTPS page and document the recovery. No rollback action is needed for this disposable fixture because nothing is remotely deployed.
 """
+
+VALID_INTAKE_INPUT = "\n".join(
+    (
+        "Factory Test Brand",
+        "Static marketing website",
+        "2030-01-01",
+        "Verify that factory commands work safely in isolation.",
+        "Confirm repeatable project setup, Protect human approval boundaries",
+        "Factory maintainers testing local changes",
+        "Internal development environment",
+        "Clear command results, Confidence that real projects remain unchanged",
+        "1",
+        "1, 4",
+        "Semantic static page, Working in-page navigation",
+        "Factory Test Brand",
+        "No",
+        "Navy and white",
+        "Neutral slate",
+        "System sans serif",
+        "Clear and reliable",
+        "Minimal responsive technical interface",
+        "Factory maintainers",
+        "suite.invalid",
+        "Vercel test target",
+        "Semantic HTML and CSS",
+        "None required for this static test",
+        "None required for this static test",
+        "None required for this static test",
+        "factory regression testing",
+        "Internal development environment",
+        "Internal test allocation",
+        "Complete during the local test run",
+        "Standard-library tooling only",
+        "Never touch a real project or production service",
+        "y",
+    )
+) + "\n"
 
 
 class TestFailure(AssertionError):
@@ -329,7 +270,7 @@ class FactorySuite:
         self.environment["PYTHONDONTWRITEBYTECODE"] = "1"
         self.environment["NO_COLOR"] = "1"
 
-    def run(self, *arguments, timeout=20, environment=None):
+    def run(self, *arguments, timeout=20, environment=None, input_text=None):
         active_environment = self.environment.copy()
         if environment:
             active_environment.update(environment)
@@ -341,6 +282,7 @@ class FactorySuite:
             check=False,
             timeout=timeout,
             env=active_environment,
+            input=input_text,
         )
         return CommandResult(result.returncode, result.stdout, result.stderr)
 
@@ -462,6 +404,7 @@ def run_suite(suite):
             0,
             "./factory doctor",
             "./factory create",
+            "./factory intake",
             "./factory deploy",
             "./factory rollback",
             "./factory preview",
@@ -541,7 +484,34 @@ def run_suite(suite):
         lambda: suite.expect(suite.run("validate-brief", PROJECT_NAME), 1, "NOT READY"),
     )
 
-    write_text(suite.project / "PROJECT-BRIEF.md", VALID_BRIEF)
+    def cancelled_intake_case():
+        before = fingerprint_tree(suite.project)
+        result = suite.run("intake", PROJECT_NAME, input_text="CANCEL\n")
+        suite.expect(result, 0, "INTAKE CANCELLED", "No changes were saved")
+        require(fingerprint_tree(suite.project) == before, "cancelled intake changed project files")
+
+    suite.case("guided intake can be cancelled without changes", cancelled_intake_case)
+
+    def completed_intake_case():
+        status_before = suite.status_file.read_bytes()
+        result = suite.run("intake", PROJECT_NAME, input_text=VALID_INTAKE_INPUT)
+        suite.expect(result, 0, "Intake saved", "READY: the brief contains")
+        brief = (suite.project / "PROJECT-BRIEF.md").read_text(encoding="utf-8")
+        require(f"**Project Name:** {PROJECT_NAME}" in brief, "intake did not set the project name")
+        require("- [x] Landing Page" in brief, "intake did not record the website type")
+        require("- [x] Contact" in brief, "intake did not record selected pages")
+        require(suite.status_file.read_bytes() == status_before, "intake changed workflow status")
+
+    suite.case("guided intake creates a validator-ready brief", completed_intake_case)
+
+    def preserved_intake_case():
+        before = fingerprint_tree(suite.project)
+        result = suite.run("intake", PROJECT_NAME, input_text="\n" * 31)
+        suite.expect(result, 0, "No changes requested", "READY: the brief contains")
+        require(fingerprint_tree(suite.project) == before, "intake rerun changed preserved answers")
+
+    suite.case("guided intake preserves existing answers by default", preserved_intake_case)
+
     write_text(suite.project / "src" / "index.html", VALID_INDEX)
     write_text(suite.project / "src" / "styles.css", "body { color: #172033; background: #ffffff; }\n")
     write_text(suite.project / "reports" / "LAUNCH-READINESS.md", VALID_LAUNCH_REPORT)
@@ -575,6 +545,14 @@ def run_suite(suite):
         require("\nArchitecture\n" in suite.status_file.read_text(encoding="utf-8"), "advance did not update the stage")
 
     suite.case("advance moves exactly one validated stage", advance_case)
+
+    def late_intake_case():
+        before = fingerprint_tree(suite.project)
+        result = suite.run("intake", PROJECT_NAME)
+        suite.expect(result, 1, "expected Intake", "no answers were changed")
+        require(fingerprint_tree(suite.project) == before, "late intake changed project files")
+
+    suite.case("guided intake cannot rewrite requirements after Intake", late_intake_case)
 
     write_text(suite.status_file, status_document("Ready for Human Approval"))
 
