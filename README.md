@@ -245,6 +245,10 @@ Before committing changes to the factory itself, run its isolated regression sui
 
 The suite copies the factory into a temporary directory, creates a disposable project, and exercises every public command. It verifies factory health diagnostics, project creation, guided intake, status reporting, brief and stage validation, workflow handoffs and transitions, human approval, release readiness, deployment and rollback safeguards, static checks, and local previews. Vercel behavior is represented by a local fake executable: the suite never authenticates with or contacts Vercel, changes production, or modifies anything under the real `projects/` directory.
 
+## Continuous integration
+
+`.github/workflows/factory-ci.yml` runs `./factory doctor`, `./factory scan-secrets`, and `./factory test` on every push and pull request to `main`. It requires no secrets or external service access: Vercel behavior in the regression suite is represented by a local fake executable, and the doctor and scanner commands are read-only.
+
 ## Goal
 
 Create a repeatable AI-assisted workflow capable of producing professional websites efficiently while maintaining human oversight, version control, testing, and quality standards.

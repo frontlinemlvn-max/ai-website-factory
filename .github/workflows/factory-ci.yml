@@ -1,0 +1,38 @@
+name: Factory CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Doctor, secret scan, and regression suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Factory health check
+        run: ./factory doctor
+
+      - name: Secret scan
+        run: ./factory scan-secrets
+
+      - name: Factory regression suite
+        run: ./factory test
