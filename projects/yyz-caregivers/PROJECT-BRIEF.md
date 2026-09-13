@@ -236,6 +236,10 @@ Examples:
 - Travel boundary: approximately 15 minutes' travel time from the founder's home base (exact base location kept private, consistent with the existing decision to keep the business address private), rather than a strict municipal-boundary cutoff.
 - Edge cases: areas just outside the listed municipalities (Toronto east end/Scarborough, North York, Pickering, Ajax, Whitby, Oshawa) are considered case-by-case rather than automatically excluded. Site copy should invite inquiries from nearby areas rather than stating a firm hard boundary.
 
+### Owner-Supplied Privacy Contact Input — September 13, 2026
+
+- Dedicated privacy/incident contact: privacy@getcarequick.ca, to be set up once the domain is registered. Until then, frontline.mlvn@gmail.com remains the interim fallback contact for privacy and incident matters.
+
 ### Intake-Form Change Request
 
 The owner initially requested a comprehensive intake form with condition selection and future care-plan recommendations, then approved the safer default: a non-sending Support Needs Assessment using broad daily-living topics. It will produce only a temporary on-screen summary and must not request diagnoses, medication, treatment, health-card, financial, emergency, or detailed care-history information.

@@ -18,7 +18,7 @@ This draft must not be published or represented as YYZ Caregivers' privacy polic
 YYZ Caregivers is an Ontario sole proprietorship providing non-clinical private-home personal support services in Toronto (east end / Scarborough), North York, Pickering, Ajax, Whitby, and Oshawa.
 
 - **Public contact:** frontline.mlvn@gmail.com, 416-731-5383
-- **Privacy contact:** [OPEN — see Open Items]
+- **Privacy contact:** privacy@getcarequick.ca (once the domain is registered); frontline.mlvn@gmail.com in the interim
 
 ## 2. Scope
 
@@ -77,7 +77,7 @@ If a data incident occurs (for example, a lost device or unauthorized access to 
 
 ## 11. Privacy Contact
 
-**[OPEN — see Open Items.]** Until a dedicated privacy contact is designated, privacy questions and requests under Section 8 should be directed to frontline.mlvn@gmail.com.
+Privacy questions and requests under Section 8 should be directed to privacy@getcarequick.ca once the domain is registered and that address is active. Until then, direct them to frontline.mlvn@gmail.com.
 
 ## 12. Changes to This Policy
 
@@ -89,7 +89,6 @@ These must be resolved, ideally with legal/accounting input, before this draft c
 
 | Item | Status |
 |---|---|
-| Dedicated privacy/incident contact (separate from general inquiry email) | Owner has not yet designated one |
 | Specific retention period | TBD pending legal/accounting input |
 | Vendor/CRM/scheduling tool for processing inquiries | Not yet selected |
 | Security measures for the live system | Cannot be described until the system is built |
