@@ -6,11 +6,11 @@ yyz-caregivers
 
 ## Current Stage
 
-Final Review
+Approved
 
 ## Current Owner
 
-QA Tester
+Project Orchestrator
 
 ## Completed Stages
 
@@ -24,10 +24,12 @@ QA Tester
 - Security
 - Performance
 - Accessibility
+- Final Review
+- Ready for Human Approval
 
 ## Active Work
 
-Run final regression testing and produce the launch-readiness decision.
+Prepare the approved release for the deployment-readiness gate.
 
 ## Blockers
 
@@ -39,8 +41,18 @@ No known QA, exploitable security, or local-pilot performance defect remains ope
 
 ## Human Decisions Required
 
-The owner approved the safe assessment defaults but did not approve release. Explicit human approval is still required after revised Design, Development, QA, SEO, Security, Performance, Accessibility, and Final Review.
+No production approval decision is pending.
+
+Approval record:
+- **Decision:** APPROVED
+- **Recorded at:** 2026-09-13T03:21:05Z
+- **Recorded through:** `./factory approve yyz-caregivers APPROVED`
+- **Evidence:** `reports/LAUNCH-READINESS.md`
+- **Scope:** Authorizes release preparation only; no deployment was performed.
+
+Decision context presented before approval:
+Explicit human approval is required before any production deployment.
 
 ## Next Action
 
-Run final regression testing and produce the launch-readiness decision. Required output: reports/LAUNCH-READINESS.md. When complete, run './factory next yyz-caregivers'.
+Prepare the approved release for the deployment-readiness gate. Required output: verified deployment plan and rollback procedure. Run './factory validate-stage yyz-caregivers' when the deployment plan is complete. A separate explicit instruction is still required for production deployment.
