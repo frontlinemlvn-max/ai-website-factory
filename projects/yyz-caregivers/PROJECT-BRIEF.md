@@ -212,6 +212,13 @@ Examples:
 - Incident response approach: notify affected clients directly and assess promptly; detailed process still requires legal input.
 - A production privacy policy draft incorporating these inputs, and listing all remaining open items, has been created at `documentation/PRIVACY-POLICY-DRAFT.md`. It is a draft only and is not approved for publication; the live `src/privacy.html` pilot page remains unchanged and continues to accurately describe the current zero-collection reality.
 
+### Owner-Supplied Terms of Service Drafting Inputs — September 13, 2026
+
+- Service agreement structure: not yet decided whether a separate signed client agreement will exist alongside the website Terms.
+- Cancellation/rescheduling policy: flexible, no penalty. No specific notice period set.
+- Payment: invoice after service, payable by e-transfer or cheque; no online payment processor. Payment due timing not yet set.
+- A production Terms of Service draft incorporating these inputs, with liability/indemnification language intentionally left for a lawyer to draft, has been created at `documentation/TERMS-OF-SERVICE-DRAFT.md`. It is a draft only and is not approved for publication; the live `src/terms.html` pilot page remains unchanged.
+
 ### Intake-Form Change Request
 
 The owner initially requested a comprehensive intake form with condition selection and future care-plan recommendations, then approved the safer default: a non-sending Support Needs Assessment using broad daily-living topics. It will produce only a temporary on-screen summary and must not request diagnoses, medication, treatment, health-card, financial, emergency, or detailed care-history information.
