@@ -224,6 +224,21 @@ From the factory root, start a safe local preview with:
 
 The command serves `projects/factory-demo/src` at `http://127.0.0.1:8743/` with XSS/CSP headers, path checks, and loopback-only binding. It keeps running until you press `Ctrl-C`. To use another port, add it as the final argument (for example, `./factory preview factory-demo 9000`).
 
+## Customer frontend prototype
+
+The Claude Design customer-facing prototype is isolated in `frontend/`; it does not
+replace the factory CLI or any generated project. Preview it locally with:
+
+```bash
+cd /Users/brandingbadge/Documents/ai-website-factory/frontend
+python3 -m http.server 5173 --bind 127.0.0.1
+```
+
+Open `http://127.0.0.1:5173/` for the application or
+`http://127.0.0.1:5173/landing.html` for the marketing page. See
+`frontend/README.md` for the export technology, external runtime dependencies, and
+the boundary between simulated prototype actions and future backend integration.
+
 ## Scan for secrets
 
 Before committing or during validation, scan the factory or a project for committed `.env` files and high-confidence secret patterns. The scanner reports file paths and pattern classes only; it never prints secret values.

@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Website Factory App</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/nocturne-bc6aced1-6434-46a2-9ab7-05c2a01b0413/styles.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600&display=swap">
+<script src="_ds/nocturne-bc6aced1-6434-46a2-9ab7-05c2a01b0413/_ds_bundle.js"></script>
+<style>
+  :root {
+    --color-bg: #121212;
+    --color-surface: #1c1c1c;
+    --color-text: #ffffff;
+    --color-accent: #0066cc;
+    --color-accent-2: #00c2d9;
+    --color-divider: color-mix(in srgb, #ffffff 16%, transparent);
+    --color-neutral-100: #ffffff; --color-neutral-200: #f0f0f0; --color-neutral-300: #d6d6d6;
+    --color-neutral-400: #b3b3b3; --color-neutral-500: #8c8c8c; --color-neutral-600: #6b6b6b;
+    --color-neutral-700: #4d4d4d; --color-neutral-800: #333333; --color-neutral-900: #1f1f1f;
+    --color-accent-100: #eaf2ff; --color-accent-200: #cce0ff; --color-accent-300: #99c2ff;
+    --color-accent-400: #4d94ff; --color-accent-500: #0066cc; --color-accent-600: #0052a6;
+    --color-accent-700: #003d7a; --color-accent-800: #002952; --color-accent-900: #001a33;
+    --color-accent-2-100: #e6ffff; --color-accent-2-200: #b3ffff; --color-accent-2-300: #66f5ff;
+    --color-accent-2-400: #1fe5ff; --color-accent-2-500: #00c2d9; --color-accent-2-600: #0099ad;
+    --color-accent-2-700: #007083; --color-accent-2-800: #004d59; --color-accent-2-900: #00323a;
+    --wf-press: #ff00e5;
+    --wf-term: #00ff00;
+    --wf-brand: #4d94ff;
+    --wf-brand-sub: #00c2d9;
+    --shadow-sm: 0 0 0 1px #333333;
+    --shadow-md: 0 0 0 1px #4d4d4d, 0 6px 18px rgba(0,0,0,0.6);
+    --shadow-lg: 0 0 0 1px #8c8c8c, 0 16px 40px rgba(0,0,0,0.7);
+  }
+  [data-theme="light"] {
+    --color-bg: #ffffff;
+    --color-surface: #f4f7fb;
+    --color-text: #121212;
+    --color-divider: color-mix(in srgb, #121212 14%, transparent);
+    --color-neutral-100: #1f1f1f; --color-neutral-200: #333333; --color-neutral-300: #4d4d4d;
+    --color-neutral-400: #6b6b6b; --color-neutral-500: #8c8c8c; --color-neutral-600: #b3b3b3;
+    --color-neutral-700: #d6d6d6; --color-neutral-800: #e8e8e8; --color-neutral-900: #f2f4f7;
+    --color-accent: #0052a6;
+    --color-accent-100: #001a33; --color-accent-200: #002952; --color-accent-300: #003d7a;
+    --color-accent-400: #0052a6; --color-accent-500: #0066cc; --color-accent-600: #4d94ff;
+    --color-accent-700: #99c2ff; --color-accent-800: #e3edfb; --color-accent-900: #f0f6ff;
+    --color-accent-2-100: #00323a; --color-accent-2-200: #004d59; --color-accent-2-300: #007083;
+    --color-accent-2-400: #0099ad; --color-accent-2-500: #00c2d9; --color-accent-2-600: #1fe5ff;
+    --color-accent-2-700: #66f5ff; --color-accent-2-800: #cdf6fb; --color-accent-2-900: #edfdff;
+    --wf-press: #b8009f;
+    --wf-term: #0a8f2a;
+    --wf-brand: #1a1ae6;
+    --wf-brand-sub: #00636f;
+    --shadow-sm: 0 0 0 1px #e0e4ea;
+    --shadow-md: 0 0 0 1px #d6dbe3, 0 6px 18px rgba(18,18,18,0.10);
+    --shadow-lg: 0 0 0 1px #c4cbd6, 0 16px 40px rgba(18,18,18,0.16);
+  }
+  @keyframes wf-belt { to { background-position-x: -40px } }
+  @keyframes wf-press { 0%, 100% { transform: translateY(0) } 48% { transform: translateY(7px) } }
+  @keyframes wf-lamp { 0%, 100% { opacity: .25 } 48% { opacity: 1 } }
+  @keyframes wf-roll { to { transform: rotate(360deg) } }
+  @keyframes wf-rise { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+  @keyframes wf-drop { from { opacity: 0; transform: translateY(-10px) scale(.94) } to { opacity: 1; transform: none } }
+  @keyframes wf-spin { to { transform: rotate(360deg) } }
+</style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); min-height: 100vh; display: flex; flex-direction: column;">
+
+  <header style="display: flex; align-items: center; gap: 16px; padding: 12px clamp(14px, 3vw, 28px); border-bottom: 1px solid var(--color-divider); flex-wrap: wrap;">
+    <div style="display: flex; align-items: center; gap: 11px; margin-right: auto;">
+      <img src="assets/easy-start-mark.png" alt="easy-start" style="height: 26px; width: auto; display: block;" />
+      <div style="display: flex; flex-direction: column; gap: 1px;">
+        <span style="font-family: 'Poppins', var(--font-heading); font-weight: 700; font-size: 16px; line-height: 1; letter-spacing: -0.02em; color: var(--wf-brand);">easy-start</span>
+        <span style="font-family: 'Poppins', var(--font-heading); font-weight: 600; font-size: 8.5px; line-height: 1; letter-spacing: 0.18em; text-transform: uppercase; color: var(--wf-brand-sub);">Online Manufacturing Plant</span>
+      </div>
+    </div>
+    <span style="font-size: 12px; font-family: ui-monospace, monospace; color: color-mix(in srgb, var(--color-text) 62%, transparent);">{{ lineStatus }}</span>
+    <button class="btn btn-secondary" onClick="{{ toggleTheme }}" title="Switch mode">
+      <sc-if value="{{ isDark }}" hint-placeholder-val="{{ true }}"><i class="ph ph-sun"></i></sc-if>
+      <sc-if value="{{ isLight }}"><i class="ph ph-moon"></i></sc-if>
+      {{ themeLabel }}
+    </button>
+    <sc-if value="{{ isReady }}">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="btn btn-secondary" onClick="{{ restart }}"><i class="ph ph-arrow-counter-clockwise"></i>Run the line again</button>
+        <button class="btn btn-primary" onClick="{{ publish }}"><i class="ph ph-rocket-launch"></i>{{ publishLabel }}</button>
+      </div>
+    </sc-if>
+  </header>
+
+  <sc-if value="{{ onLine }}" hint-placeholder-val="{{ true }}">
+  <main style="flex: 1; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: clamp(14px, 2vw, 28px); padding: clamp(18px, 3vw, 36px) clamp(18px, 5vw, 56px) 0; max-width: 1240px; margin: 0 auto; width: 100%;">
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: clamp(20px, 4vw, 48px); align-items: start; min-height: 0; overflow: auto;">
+      <div style="max-width: 520px;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
+          <span class="tag tag-outline" style="white-space: nowrap;">{{ stationTag }}</span>
+          <span style="font-size: 12px; color: color-mix(in srgb, var(--color-text) 62%, transparent);">{{ stationName }}</span>
+        </div>
+        <h1 style="font-size: clamp(23px, 2.9vw, 33px); line-height: 1.08; letter-spacing: -0.025em; margin: 0 0 8px; text-wrap: balance;">{{ question }}</h1>
+        <p style="font-size: 13.5px; line-height: 1.55; color: color-mix(in srgb, var(--color-text) 62%, transparent); margin: 0 0 18px;">{{ questionNote }}</p>
+
+        <sc-if value="{{ atDomain }}">
+          <div style="max-width: 460px;">
+            <sc-if value="{{ hasDomain }}">
+              <div style="display: flex; align-items: flex-start; gap: 9px; padding: 13px 14px; border-radius: var(--radius-md); background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-accent-700);">
+                <i class="ph ph-check-circle" style="color: var(--color-accent); margin-top: 1px;"></i>
+                <div style="min-width: 0;">
+                  <div style="font-size: 14px; font-family: ui-monospace, monospace;">{{ boughtDomain }}</div>
+                  <div style="font-size: 12px; line-height: 1.5; color: color-mix(in srgb, var(--color-text) 60%, transparent); margin-top: 3px;">{{ domainReceipt }}</div>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ noDomain }}" hint-placeholder-val="{{ true }}">
+              <div class="field" style="margin-bottom: 12px;">
+                <label>Preferred domain name</label>
+                <div style="display: flex; gap: 8px; align-items: stretch;">
+                  <input class="input" style="min-width: 0; flex: 1;" value="{{ domainQuery }}" onChange="{{ onDomain }}" placeholder="yourbusiness" />
+                  <button class="btn btn-secondary" onClick="{{ checkDomain }}" style="flex: none; white-space: nowrap;"><i class="ph ph-magnifying-glass"></i>{{ checkLabel }}</button>
+                </div>
+              </div>
+
+              <sc-if value="{{ checking }}">
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--color-accent-200);">
+                  <i class="ph ph-circle-notch" style="animation: wf-spin 1s linear infinite;"></i><span>Checking the registry for {{ domainRoot }}…</span>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ domainChecked }}">
+                <div style="display: flex; flex-direction: column; gap: 7px;">
+                  <sc-for list="{{ domainResults }}" as="dm" hint-placeholder-count="6">
+                    <div>
+                      <sc-if value="{{ dm.available }}" hint-placeholder-val="{{ true }}">
+                        <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-divider);">
+                          <div style="min-width: 0; margin-right: auto;">
+                            <div style="font-size: 13px; font-family: ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis;">{{ dm.domain }}</div>
+                            <div style="font-size: 11.5px; color: color-mix(in srgb, var(--color-text) 58%, transparent); margin-top: 2px;">{{ dm.note }}</div>
+                          </div>
+                          <div style="text-align: right; flex: none;">
+                            <div style="font-size: 13px;">{{ dm.price }}</div>
+                            <div style="font-size: 11px; color: color-mix(in srgb, var(--color-text) 55%, transparent);">{{ dm.per }}</div>
+                          </div>
+                          <sc-if value="{{ dm.notBuying }}" hint-placeholder-val="{{ true }}">
+                            <button class="btn btn-primary" onClick="{{ dm.buy }}" style="flex: none; padding: 7px 13px; font-size: 12.5px;">{{ dm.buyLabel }}</button>
+                          </sc-if>
+                          <sc-if value="{{ dm.buying }}">
+                            <button class="btn btn-primary" disabled="{{ true }}" style="flex: none; padding: 7px 13px; font-size: 12.5px;"><i class="ph ph-circle-notch" style="animation: wf-spin 1s linear infinite;"></i>{{ dm.buyLabel }}</button>
+                          </sc-if>
+                        </div>
+                      </sc-if>
+                      <sc-if value="{{ dm.taken }}">
+                        <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-md); opacity: 0.45;">
+                          <div style="min-width: 0; margin-right: auto;">
+                            <div style="font-size: 13px; font-family: ui-monospace, monospace; text-decoration: line-through;">{{ dm.domain }}</div>
+                            <div style="font-size: 11.5px; color: color-mix(in srgb, var(--color-text) 58%, transparent); margin-top: 2px;">Taken</div>
+                          </div>
+                          <i class="ph ph-lock-simple" style="flex: none;"></i>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                  <div style="font-size: 11.5px; line-height: 1.5; color: color-mix(in srgb, var(--color-text) 55%, transparent); margin-top: 4px;">Prices in CAD per year, renewals at the same rate. Registration, DNS and the SSL certificate are handled here. HST added at checkout.</div>
+                </div>
+              </sc-if>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ atName }}">
+          <div class="field" style="max-width: 380px;">
+            <label>Business name</label>
+            <input class="input" value="{{ name }}" onChange="{{ onName }}" />
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ atWork }}">
+          <div class="field">
+            <label>In your words</label>
+            <textarea class="input" style="min-height: 100px; line-height: 1.55;" value="{{ brief }}" onChange="{{ onBrief }}"></textarea>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ atWho }}">
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <sc-for list="{{ audiences }}" as="a" hint-placeholder-count="4">
+              <div>
+                <sc-if value="{{ a.on }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ a.toggle }}" style="cursor: pointer; font: inherit; font-size: 13px; padding: 6px 12px; border-radius: var(--radius-md); background: var(--color-accent-900); border: 1px solid var(--color-accent); color: var(--color-accent-200); display: inline-flex; align-items: center; gap: 6px;"><i class="ph ph-check"></i>{{ a.label }}</button>
+                </sc-if>
+                <sc-if value="{{ a.off }}">
+                  <button onClick="{{ a.toggle }}" style="cursor: pointer; font: inherit; font-size: 13px; padding: 6px 12px; border-radius: var(--radius-md); background: transparent; border: 1px solid var(--color-divider); color: color-mix(in srgb, var(--color-text) 70%, transparent);" style-hover="border-color: var(--color-accent); color: var(--color-text)">{{ a.label }}</button>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ atAction }}">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; max-width: 460px;">
+            <sc-for list="{{ actions }}" as="ac" hint-placeholder-count="4">
+              <div>
+                <sc-if value="{{ ac.on }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ ac.pick }}" style="width: 100%; text-align: left; cursor: pointer; font: inherit; font-size: 14px; padding: 11px 14px; border-radius: var(--radius-md); background: var(--color-accent-900); border: 1px solid var(--color-accent); color: var(--color-accent-100); display: flex; align-items: center; gap: 10px;"><i class="ph ph-check-circle"></i>{{ ac.label }}</button>
+                </sc-if>
+                <sc-if value="{{ ac.off }}">
+                  <button onClick="{{ ac.pick }}" style="width: 100%; text-align: left; cursor: pointer; font: inherit; font-size: 14px; padding: 11px 14px; border-radius: var(--radius-md); background: transparent; border: 1px solid var(--color-divider); color: color-mix(in srgb, var(--color-text) 72%, transparent); display: flex; align-items: center; gap: 10px;" style-hover="border-color: var(--color-accent); color: var(--color-text)"><i class="ph ph-circle"></i>{{ ac.label }}</button>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ atExtras }}">
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <sc-for list="{{ extras }}" as="x" hint-placeholder-count="5">
+              <div>
+                <sc-if value="{{ x.on }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ x.toggle }}" style="cursor: pointer; font: inherit; font-size: 13px; padding: 6px 12px; border-radius: var(--radius-md); background: var(--color-accent-900); border: 1px solid var(--color-accent); color: var(--color-accent-200); display: inline-flex; align-items: center; gap: 6px;"><i class="ph ph-check"></i>{{ x.label }}</button>
+                </sc-if>
+                <sc-if value="{{ x.off }}">
+                  <button onClick="{{ x.toggle }}" style="cursor: pointer; font: inherit; font-size: 13px; padding: 6px 12px; border-radius: var(--radius-md); background: transparent; border: 1px solid var(--color-divider); color: color-mix(in srgb, var(--color-text) 70%, transparent);" style-hover="border-color: var(--color-accent); color: var(--color-text)">{{ x.label }}</button>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 24px;">
+          <sc-if value="{{ canGoBack }}">
+            <button class="btn btn-secondary" onClick="{{ back }}"><i class="ph ph-arrow-left"></i>Back</button>
+          </sc-if>
+          <button class="btn btn-primary" onClick="{{ advance }}" style="min-width: 156px;"><i class="ph ph-arrow-right"></i>{{ advanceLabel }}</button>
+          <span style="font-size: 12px; color: color-mix(in srgb, var(--color-text) 62%, transparent);">{{ addsNote }}</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+        <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 62%, transparent);">Line log</div>
+        <div style="display: flex; flex-direction: column; gap: 8px; font-family: ui-monospace, monospace; font-size: 12px;">
+          <sc-for list="{{ log }}" as="l" hint-placeholder-count="3">
+            <div style="display: flex; gap: 9px; align-items: baseline;">
+              <span style="color: var(--wf-term); flex: none;">{{ l.mark }}</span>
+              <span style="color: color-mix(in srgb, var(--color-text) 62%, transparent);">{{ l.text }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: auto; padding-bottom: clamp(14px, 2vw, 22px);">
+      <div ref="{{ trackRef }}" style="position: relative; height: 148px;">
+
+        <div ref="{{ pieceRef }}" style="position: absolute; left: 0; bottom: 64px; transform: translateX(-50%); transition: left 900ms cubic-bezier(.34,.08,.2,1); width: 122px; z-index: 3;">
+          <div style="background: #ffffff; border-radius: 3px; box-shadow: 0 12px 20px rgba(0,0,0,.55); padding: 7px; display: flex; flex-direction: column; gap: 4px; min-height: 58px;">
+            <sc-if value="{{ part.header }}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; align-items: center; gap: 5px; animation: wf-drop .5s ease both;">
+                <span style="width: 9px; height: 9px; border-radius: 3px; background: #0066cc;"></span>
+                <span style="height: 5px; width: 40px; border-radius: 3px; background: #5c5c5c;"></span>
+                <span style="margin-left: auto; height: 5px; width: 14px; border-radius: 3px; background: #d6d6d6;"></span>
+                <span style="height: 5px; width: 14px; border-radius: 3px; background: #d6d6d6;"></span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ part.hero }}">
+              <div style="display: flex; flex-direction: column; gap: 5px; animation: wf-drop .5s ease both;">
+                <div style="height: 12px; width: 92%; border-radius: 3px; background: #121212;"></div>
+                <div style="height: 12px; width: 62%; border-radius: 3px; background: #5c5c5c;"></div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ part.body }}">
+              <div style="display: flex; flex-direction: column; gap: 4px; animation: wf-drop .5s ease both;">
+                <div style="height: 4px; width: 88%; border-radius: 2px; background: #c9c9c9;"></div>
+                <div style="height: 4px; width: 76%; border-radius: 2px; background: #c9c9c9;"></div>
+                <div style="height: 4px; width: 58%; border-radius: 2px; background: #c9c9c9;"></div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ part.cta }}">
+              <div style="display: flex; gap: 5px; animation: wf-drop .5s ease both;">
+                <span style="height: 13px; width: 48px; border-radius: 3px; background: #0066cc;"></span>
+                <span style="height: 13px; width: 34px; border-radius: 3px; border: 1px solid #d6d6d6;"></span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ part.blocks }}">
+              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; animation: wf-drop .5s ease both;">
+                <div style="height: 26px; border-radius: 3px; background: #e8e8e8;"></div>
+                <div style="height: 26px; border-radius: 3px; background: #e8e8e8;"></div>
+                <div style="height: 26px; border-radius: 3px; background: #e8e8e8;"></div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ part.footer }}">
+              <div style="display: flex; gap: 5px; align-items: center; margin-top: 2px; padding-top: 6px; border-top: 1px solid #e0e0e0; animation: wf-drop .5s ease both;">
+                <span style="height: 4px; width: 30px; border-radius: 2px; background: #c9c9c9;"></span>
+                <span style="margin-left: auto; height: 4px; width: 18px; border-radius: 2px; background: #c9c9c9;"></span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ part.empty }}">
+              <div style="margin: auto; font-size: 10px; color: #8c8c8c; text-align: center; line-height: 1.4;">blank<br />sheet</div>
+            </sc-if>
+          </div>
+        </div>
+
+        <div style="position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end; pointer-events: none; z-index: 1;">
+          <sc-for list="{{ stations }}" as="st" hint-placeholder-count="5">
+            <div style="justify-self: center; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+              <sc-if value="{{ st.working }}" hint-placeholder-val="{{ true }}">
+                <span style="display: inline-flex; width: 58px; height: 30px; border-radius: 4px; align-items: center; justify-content: center; gap: 5px; color: var(--color-accent-100); background: var(--color-accent-900); box-shadow: inset 0 0 0 1px var(--color-accent-700), 0 0 24px color-mix(in srgb, var(--color-accent) 34%, transparent); font-size: 14px;">
+                  <i class="{{ st.icon }}"></i><span style="width: 10px; height: 5px; border-radius: 1px; background: var(--color-accent);"></span>
+                </span>
+              </sc-if>
+              <sc-if value="{{ st.doneState }}">
+                <span style="display: inline-flex; width: 58px; height: 30px; border-radius: 4px; align-items: center; justify-content: center; gap: 5px; color: var(--color-accent); background: var(--color-neutral-900); box-shadow: inset 0 0 0 1px var(--color-accent-800); font-size: 14px;">
+                  <i class="ph ph-check"></i><span style="width: 10px; height: 5px; border-radius: 1px; background: var(--color-accent-700);"></span>
+                </span>
+              </sc-if>
+              <sc-if value="{{ st.waiting }}">
+                <span style="display: inline-flex; width: 58px; height: 30px; border-radius: 4px; align-items: center; justify-content: center; gap: 5px; color: var(--color-neutral-600); background: var(--color-neutral-900); box-shadow: inset 0 0 0 1px var(--color-neutral-800); font-size: 14px;">
+                  <i class="{{ st.icon }}"></i><span style="width: 10px; height: 5px; border-radius: 1px; background: var(--color-neutral-800);"></span>
+                </span>
+              </sc-if>
+              <span style="font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; text-align: center; color: color-mix(in srgb, var(--color-text) 62%, transparent);">{{ st.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="position: absolute; left: -14px; right: -14px; bottom: 42px; height: 22px; z-index: 2; background-image: repeating-linear-gradient(90deg, #4d4d4d 0 2px, #262626 2px 5px, #161616 5px 12px); background-size: 12px 100%; box-shadow: inset 0 3px 0 #6b6b6b, inset 0 -3px 0 #262626, 0 8px 18px rgba(0,0,0,.6); animation: wf-belt 2.2s linear infinite;"></div>
+        <div style="position: absolute; left: -14px; right: -14px; bottom: 39px; height: 4px; z-index: 2; background: var(--color-neutral-900); box-shadow: inset 0 1px 0 #333333;"></div>
+        <div style="position: absolute; left: 4%; bottom: 18px; width: 7px; height: 24px; z-index: 1; background: var(--color-neutral-900); box-shadow: inset 0 0 0 1px var(--color-neutral-800);"></div>
+        <div style="position: absolute; right: 4%; bottom: 18px; width: 7px; height: 24px; z-index: 1; background: var(--color-neutral-900); box-shadow: inset 0 0 0 1px var(--color-neutral-800);"></div>
+        <div style="position: absolute; left: -14px; right: -14px; bottom: 12px; height: 3px; z-index: 0; background-image: repeating-linear-gradient(90deg, var(--color-accent-2-800) 0 18px, transparent 18px 34px);"></div>
+
+        <div style="position: absolute; left: -14px; right: -14px; top: 0; height: 7px; z-index: 4; background: var(--color-neutral-900); box-shadow: inset 0 1px 0 var(--color-neutral-700), 0 2px 8px rgba(0,0,0,.5);"></div>
+        <div style="position: absolute; left: 0; right: 0; top: 7px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); pointer-events: none; z-index: 4;">
+          <sc-for list="{{ stations }}" as="st" hint-placeholder-count="5">
+            <div style="justify-self: center; display: flex; flex-direction: column; align-items: center;">
+              <span style="width: 5px; height: 10px; background: var(--color-neutral-800);"></span>
+              <sc-if value="{{ st.working }}" hint-placeholder-val="{{ true }}">
+                <span style="display: flex; flex-direction: column; align-items: center; animation: wf-press 1.3s ease-in-out infinite;">
+                  <span style="width: 40px; height: 11px; border-radius: 2px; background: var(--color-neutral-800); box-shadow: inset 0 1px 0 var(--color-neutral-600), 0 0 20px color-mix(in srgb, var(--color-accent) 30%, transparent);"></span>
+                  <span style="width: 26px; height: 3px; background: var(--wf-press); animation: wf-lamp 1.3s ease-in-out infinite;"></span>
+                </span>
+              </sc-if>
+              <sc-if value="{{ st.idleHead }}">
+                <span style="display: flex; flex-direction: column; align-items: center;">
+                  <span style="width: 40px; height: 11px; border-radius: 2px; background: var(--color-neutral-900); box-shadow: inset 0 1px 0 var(--color-neutral-700);"></span>
+                  <span style="width: 26px; height: 3px; background: var(--color-neutral-800);"></span>
+                </span>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </main>
+  </sc-if>
+
+  <sc-if value="{{ isReady }}">
+  <main style="flex: 1; display: grid; grid-template-columns: minmax(230px, 290px) minmax(0, 1fr); gap: clamp(18px, 3vw, 32px); align-items: start; padding: clamp(22px, 4vw, 40px) clamp(18px, 5vw, 48px); max-width: 1320px; margin: 0 auto; width: 100%;">
+    <div style="display: flex; flex-direction: column; gap: 22px; min-width: 0;">
+      <div>
+        <span class="tag tag-outline" style="margin-bottom: 14px;">Off the line</span>
+        <h1 style="font-size: clamp(24px, 3vw, 32px); line-height: 1.1; letter-spacing: -0.022em; margin: 12px 0 8px;">{{ name }} is built.</h1>
+        <p style="font-size: 13px; line-height: 1.6; color: color-mix(in srgb, var(--color-text) 62%, transparent); margin: 0;">{{ readyNote }}</p>
+        <sc-if value="{{ writing }}">
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; color: var(--color-accent-200);">
+            <i class="ph ph-circle-notch" style="animation: wf-spin 1s linear infinite;"></i>
+            <span>Writing the copy from your brief…</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ genError }}">
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; color: color-mix(in srgb, var(--color-text) 62%, transparent);">
+            <i class="ph ph-warning"></i>
+            <span>{{ genError }}</span>
+          </div>
+        </sc-if>
+      </div>
+
+      <div>
+        <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 62%, transparent); margin-bottom: 10px;">Domain</div>
+
+        <sc-if value="{{ hasDomain }}">
+          <div style="display: flex; align-items: flex-start; gap: 9px; padding: 12px 13px; border-radius: var(--radius-md); background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-accent-700);">
+            <i class="ph ph-check-circle" style="color: var(--color-accent); margin-top: 1px;"></i>
+            <div style="min-width: 0;">
+              <div style="font-size: 13px; font-family: ui-monospace, monospace;">{{ boughtDomain }}</div>
+              <div style="font-size: 11.5px; line-height: 1.5; color: color-mix(in srgb, var(--color-text) 60%, transparent); margin-top: 3px;">{{ domainReceipt }}</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ noDomain }}" hint-placeholder-val="{{ true }}">
+          <div class="field" style="margin-bottom: 10px;">
+            <label>Preferred domain name</label>
+            <div style="display: flex; gap: 7px; align-items: stretch;">
+              <input class="input" style="min-width: 0; flex: 1;" value="{{ domainQuery }}" onChange="{{ onDomain }}" placeholder="yourbusiness">
+              <button class="btn btn-secondary" onClick="{{ checkDomain }}" style="flex: none;" aria-label="Check availability"><i class="ph ph-magnifying-glass"></i></button>
+            </div>
+          </div>
+
+          <sc-if value="{{ checking }}">
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--color-accent-200);">
+              <i class="ph ph-circle-notch" style="animation: wf-spin 1s linear infinite;"></i><span>Checking the registry for {{ domainRoot }}…</span>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ domainChecked }}">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <sc-for list="{{ domainResults }}" as="dm" hint-placeholder-count="6">
+                <div>
+                  <sc-if value="{{ dm.available }}" hint-placeholder-val="{{ true }}">
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: var(--radius-md); background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-divider);">
+                      <div style="min-width: 0; margin-right: auto;">
+                        <div style="font-size: 12.5px; font-family: ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis;">{{ dm.domain }}</div>
+                        <div style="font-size: 11px; color: color-mix(in srgb, var(--color-text) 55%, transparent); margin-top: 2px;">{{ dm.note }}</div>
+                      </div>
+                      <div style="text-align: right; flex: none;">
+                        <div style="font-size: 12.5px;">{{ dm.price }}</div>
+                        <div style="font-size: 10.5px; color: color-mix(in srgb, var(--color-text) 52%, transparent);">{{ dm.per }}</div>
+                      </div>
+                      <sc-if value="{{ dm.notBuying }}" hint-placeholder-val="{{ true }}">
+                        <button class="btn btn-primary" onClick="{{ dm.buy }}" style="flex: none; padding: 6px 12px; font-size: 12px;">{{ dm.buyLabel }}</button>
+                      </sc-if>
+                      <sc-if value="{{ dm.buying }}">
+                        <button class="btn btn-primary" disabled="{{ true }}" style="flex: none; padding: 6px 12px; font-size: 12px;"><i class="ph ph-circle-notch" style="animation: wf-spin 1s linear infinite;"></i>{{ dm.buyLabel }}</button>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ dm.taken }}">
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: var(--radius-md); opacity: 0.5;">
+                      <div style="min-width: 0; margin-right: auto;">
+                        <div style="font-size: 12.5px; font-family: ui-monospace, monospace; text-decoration: line-through;">{{ dm.domain }}</div>
+                        <div style="font-size: 11px; color: color-mix(in srgb, var(--color-text) 55%, transparent); margin-top: 2px;">Taken</div>
+                      </div>
+                      <i class="ph ph-lock-simple" style="flex: none;"></i>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <div style="font-size: 11px; line-height: 1.5; color: color-mix(in srgb, var(--color-text) 52%, transparent); margin-top: 4px;">Prices in CAD per year, renewals at the same rate. Registration, DNS and the SSL certificate are handled here. HST added at checkout.</div>
+            </div>
+          </sc-if>
+        </sc-if>
+      </div>
+
+      <div>
+        <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 62%, transparent); margin-bottom: 10px;">Pages</div>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <sc-for list="{{ pages }}" as="pg" hint-placeholder-count="4">
+            <div>
+              <sc-if value="{{ pg.selected }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ pg.pick }}" style="width: 100%; text-align: left; cursor: pointer; font: inherit; font-size: 13px; display: flex; align-items: center; gap: 9px; padding: 7px 10px; border-radius: var(--radius-md); border: 0; background: var(--color-surface); color: var(--color-accent-200); box-shadow: inset 0 0 0 1px var(--color-accent-700);">
+                  <i class="ph ph-file"></i><span style="margin-right: auto;">{{ pg.label }}</span><span style="font-family: ui-monospace, monospace; font-size: 11px; color: color-mix(in srgb, var(--color-text) 62%, transparent);">{{ pg.words }}</span>
+                </button>
+              </sc-if>
+              <sc-if value="{{ pg.unselected }}">
+                <button onClick="{{ pg.pick }}" style="width: 100%; text-align: left; cursor: pointer; font: inherit; font-size: 13px; display: flex; align-items: center; gap: 9px; padding: 7px 10px; border-radius: var(--radius-md); border: 0; background: transparent; color: color-mix(in srgb, var(--color-text) 66%, transparent);" style-hover="background: var(--color-neutral-900)">
+                  <i class="ph ph-file"></i><span style="margin-right: auto;">{{ pg.label }}</span><span style="font-family: ui-monospace, monospace; font-size: 11px; color: color-mix(in srgb, var(--color-text) 62%, transparent);">{{ pg.words }}</span>
+                </button>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 62%, transparent); margin-bottom: 10px;">Production record</div>
+        <div style="display: flex; flex-direction: column; gap: 9px; font-size: 13px;">
+          <div style="display: flex; gap: 10px;"><span style="color: color-mix(in srgb, var(--color-text) 55%, transparent); width: 92px; flex: none;">Stations</span><span>5 of 5 passed</span></div>
+          <div style="display: flex; gap: 10px;"><span style="color: color-mix(in srgb, var(--color-text) 55%, transparent); width: 92px; flex: none;">Page weight</span><span>184 KB</span></div>
+          <div style="display: flex; gap: 10px;"><span style="color: color-mix(in srgb, var(--color-text) 55%, transparent); width: 92px; flex: none;">Lighthouse</span><span>99 / 100 / 100</span></div>
+          <div style="display: flex; gap: 10px;"><span style="color: color-mix(in srgb, var(--color-text) 55%, transparent); width: 92px; flex: none;">Theme</span><span style="text-transform: capitalize;">{{ themeName }} · fitted to your trade</span></div>
+          <div style="display: flex; gap: 10px;"><span style="color: color-mix(in srgb, var(--color-text) 55%, transparent); width: 92px; flex: none;">Source</span><span>HTML + CSS, exportable</span></div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn btn-secondary" onClick="{{ restart }}"><i class="ph ph-arrows-clockwise"></i>Rebuild</button>
+        <button class="btn btn-secondary" onClick="{{ rewrite }}"><i class="ph ph-pen-nib"></i>Rewrite copy</button>
+        <button class="btn btn-secondary" onClick="{{ openPaywall }}">
+          <sc-if value="{{ exportLocked }}" hint-placeholder-val="{{ true }}"><i class="ph ph-lock-simple"></i></sc-if>
+          <sc-if value="{{ exportPaid }}"><i class="ph ph-download-simple"></i></sc-if>
+          {{ exportLabel }}
+        </button>
+      </div>
+
+      <sc-if value="{{ downloaded }}">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--color-accent-200); margin-top: -10px;">
+          <i class="ph ph-check-circle"></i><span>Export unlocked · {{ slug }}.zip downloaded</span>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-md); overflow: hidden; min-width: 0;">
+      <div style="display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--color-divider);">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-neutral-800);"></span>
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-neutral-800);"></span>
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-neutral-800);"></span>
+        <span style="margin-left: 6px; font-size: 11px; color: color-mix(in srgb, var(--color-text) 55%, transparent); font-family: ui-monospace, monospace;">{{ url }}</span>
+        <sc-if value="{{ published }}">
+          <span class="tag tag-accent" style="margin-left: auto;">Live</span>
+        </sc-if>
+      </div>
+
+      <div style="{{ pageStyle }}">
+        <div style="{{ navStyle }}">
+          <span style="{{ brandStyle }}">{{ name }}</span>
+          <sc-for list="{{ nav }}" as="nv" hint-placeholder-count="3">
+            <span style="{{ navLinkStyle }}">{{ nv.label }}</span>
+          </sc-for>
+          <span style="{{ navCtaStyle }}">{{ ctaLabel }}</span>
+        </div>
+
+        <div style="padding: clamp(26px, 4vw, 46px) 0 clamp(22px, 3vw, 36px); max-width: 620px;">
+          <div style="{{ kickerStyle }}">{{ heroKicker }}</div>
+          <div style="{{ titleStyle }}">{{ heroTitle }}</div>
+          <p style="{{ bodyStyle }}">{{ heroBody }}</p>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <span style="{{ ctaStyle }}">{{ ctaLabel }}</span>
+            <span style="{{ ctaGhostStyle }}">{{ secondaryLabel }}</span>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; padding-bottom: 28px;">
+          <sc-for list="{{ services }}" as="sv" hint-placeholder-count="3">
+            <div style="{{ cardStyle }}">
+              <div style="{{ cardTitleStyle }}">{{ sv.title }}</div>
+              <div style="{{ cardBodyStyle }}">{{ sv.body }}</div>
+              <div style="{{ priceStyle }}">{{ sv.price }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="{{ bandStyle }}">
+          <div style="margin-right: auto;">
+            <div style="{{ bandTitleStyle }}">{{ closeTitle }}</div>
+            <div style="{{ bandNoteStyle }}">{{ hours }}</div>
+          </div>
+          <span style="{{ ctaStyle }}">{{ ctaLabel }}</span>
+        </div>
+
+        <div style="{{ footStyle }}">
+          <span style="margin-right: auto;">© 2026 {{ name }}</span>
+          <span>Privacy</span>
+          <span>Terms</span>
+        </div>
+      </div>
+    </div>
+  </main>
+  </sc-if>
+
+  <sc-if value="{{ paywallOpen }}">
+    <div class="dialog-backdrop" style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 40;">
+      <div class="dialog elev-lg" style="width: min(620px, 100%); animation: wf-drop .24s ease both;">
+        <div style="display: flex; align-items: flex-start; gap: 14px;">
+          <div style="flex: 1; min-width: 0;">
+            <span class="tag tag-accent">Export</span>
+            <h2 class="dialog-title" style="font-size: 22px; letter-spacing: -0.02em; margin: 12px 0 6px;">The source is ready. Exporting it is paid.</h2>
+            <p class="dialog-body" style="font-size: 13px; line-height: 1.6; color: color-mix(in srgb, var(--color-text) 66%, transparent); margin: 0;">Building, previewing and rewriting stay free. Taking the files off the line costs money.</p>
+          </div>
+          <button class="btn btn-icon" onClick="{{ closePaywall }}" aria-label="Close"><i class="ph ph-x"></i></button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin: 22px 0;">
+          <sc-for list="{{ plans }}" as="pl" hint-placeholder-count="2">
+            <div>
+              <sc-if value="{{ pl.selected }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ pl.pick }}" style="width: 100%; text-align: left; cursor: pointer; font: inherit; display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: var(--radius-md); border: 0; background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-accent-600), 0 0 0 3px color-mix(in srgb, var(--color-accent) 14%, transparent); color: var(--color-text);">
+                  <span style="display: flex; align-items: baseline; gap: 7px;">
+                    <span style="font-family: var(--font-heading); font-size: 24px; letter-spacing: -0.02em;">{{ pl.price }}</span>
+                    <span style="font-size: 11.5px; color: color-mix(in srgb, var(--color-text) 60%, transparent);">{{ pl.cadence }}</span>
+                    <i class="ph ph-check-circle" style="margin-left: auto; color: var(--color-accent);"></i>
+                  </span>
+                  <span style="font-size: 13px;">{{ pl.name }}</span>
+                  <span style="font-size: 12px; line-height: 1.55; color: color-mix(in srgb, var(--color-text) 62%, transparent);">{{ pl.note }}</span>
+                  <span style="display: flex; flex-direction: column; gap: 5px; margin-top: 4px;">
+                    <sc-for list="{{ pl.lines }}" as="ln" hint-placeholder-count="3">
+                      <span style="display: flex; gap: 7px; align-items: flex-start; font-size: 12px; color: color-mix(in srgb, var(--color-text) 72%, transparent);">
+                        <i class="ph ph-dot-outline" style="color: var(--color-accent);"></i><span>{{ ln }}</span>
+                      </span>
+                    </sc-for>
+                  </span>
+                </button>
+              </sc-if>
+              <sc-if value="{{ pl.unselected }}">
+                <button onClick="{{ pl.pick }}" style="width: 100%; text-align: left; cursor: pointer; font: inherit; display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: var(--radius-md); border: 0; background: transparent; box-shadow: inset 0 0 0 1px var(--color-divider); color: var(--color-text);" style-hover="background: var(--color-neutral-900)">
+                  <span style="display: flex; align-items: baseline; gap: 7px;">
+                    <span style="font-family: var(--font-heading); font-size: 24px; letter-spacing: -0.02em;">{{ pl.price }}</span>
+                    <span style="font-size: 11.5px; color: color-mix(in srgb, var(--color-text) 60%, transparent);">{{ pl.cadence }}</span>
+                  </span>
+                  <span style="font-size: 13px;">{{ pl.name }}</span>
+                  <span style="font-size: 12px; line-height: 1.55; color: color-mix(in srgb, var(--color-text) 62%, transparent);">{{ pl.note }}</span>
+                  <span style="display: flex; flex-direction: column; gap: 5px; margin-top: 4px;">
+                    <sc-for list="{{ pl.lines }}" as="ln" hint-placeholder-count="3">
+                      <span style="display: flex; gap: 7px; align-items: flex-start; font-size: 12px; color: color-mix(in srgb, var(--color-text) 72%, transparent);">
+                        <i class="ph ph-dot-outline" style="color: var(--color-accent);"></i><span>{{ ln }}</span>
+                      </span>
+                    </sc-for>
+                  </span>
+                </button>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+
+        <div class="dialog-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <span style="font-size: 11.5px; color: color-mix(in srgb, var(--color-text) 55%, transparent); margin-right: auto;">Preview and rewrites stay free · HST added at checkout</span>
+          <button class="btn btn-ghost" onClick="{{ closePaywall }}">Keep previewing</button>
+          <sc-if value="{{ notPaying }}" hint-placeholder-val="{{ true }}">
+            <button class="btn btn-primary" onClick="{{ pay }}"><i class="ph ph-lock-key-open"></i>{{ payLabel }}</button>
+          </sc-if>
+          <sc-if value="{{ paying }}">
+            <button class="btn btn-primary" disabled="{{ true }}"><i class="ph ph-circle-notch" style="animation: wf-spin 1s linear infinite;"></i>{{ payLabel }}</button>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;handoffSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1400,&quot;min&quot;:400,&quot;max&quot;:3000,&quot;step&quot;:100,&quot;unit&quot;:&quot;ms&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Line&quot;}}">
+class Component extends DCLogic {
+  stationDefs = [
+    { key: "domain", label: "Address",   icon: "ph ph-globe-hemisphere-west",
+      question: "What address should the site live at?",
+      note: "Claim the domain first. We check the registry and register it for you.",
+      adds: "Reserves the address" },
+    { key: "name",   label: "Intake",    icon: "ph ph-tray",
+      question: "What is the business called?",
+      note: "The first station stamps the name onto a blank sheet.",
+      adds: "Adds the header" },
+    { key: "work",   label: "Drafting",  icon: "ph ph-pen-nib",
+      question: "What do you do, and who for?",
+      note: "The drafting station reads this and writes the headline.",
+      adds: "Adds the hero" },
+    { key: "who",    label: "Copy",      icon: "ph ph-text-aa",
+      question: "Who walks in the door?",
+      note: "Copy is written for the people you pick.",
+      adds: "Adds body copy" },
+    { key: "action", label: "Assembly",  icon: "ph ph-wrench",
+      question: "What should a visitor do?",
+      note: "Assembly wires the main action through every page.",
+      adds: "Adds the call to action" },
+    { key: "extras", label: "Finishing", icon: "ph ph-package",
+      question: "Anything else on the site?",
+      note: "Finishing bolts on the extras and the footer.",
+      adds: "Adds sections and footer" }
+  ];
+
+  state = {
+    theme: (typeof localStorage !== "undefined" && localStorage.getItem("wf-theme")) || "dark",
+    at: 0,
+    running: false,
+    finished: false,
+    name: "Atelier Bicicleta",
+    brief: "A two-person bicycle repair shop in Lisbon. Tune-ups, hand-built wheels and restorations of older frames.",
+    who: { "Local walk-ins": true, "Repeat customers": true, "Other businesses": false, "People browsing online": false },
+    action: "Book a slot",
+    extras: { "Price list": true, "Map and hours": true, "Photo gallery": false, "Newsletter": false, "Online shop": false }
+  };
+
+  actionList = ["Book a slot", "Call us", "Buy online", "Join the newsletter"];
+  whoList = ["Local walk-ins", "Repeat customers", "Other businesses", "People browsing online"];
+  extraList = ["Price list", "Map and hours", "Photo gallery", "Newsletter", "Online shop"];
+
+  trackRef = React.createRef();
+  pieceRef = React.createRef();
+
+  componentDidMount() { this.place(); window.addEventListener("resize", this.place); }
+  componentDidUpdate() { this.place(); }
+  componentWillUnmount() { window.removeEventListener("resize", this.place); clearTimeout(this.t); }
+
+  place = () => {
+    const piece = this.pieceRef.current;
+    if (!piece) return;
+    const n = this.stationDefs.length;
+    const i = Math.min(this.state.at, n - 1);
+    const frac = this.state.finished ? 1.04 : (i + 0.5) / n;
+    piece.style.left = (frac * 100) + "%";
+    piece.style.opacity = this.state.finished ? "0" : "1";
+    piece.style.transition = "left 900ms cubic-bezier(.34,.08,.2,1), opacity 500ms ease 500ms";
+  };
+
+  advance = () => {
+    const last = this.state.at >= this.stationDefs.length - 1;
+    if (!last) { this.setState(s => ({ at: s.at + 1 })); return; }
+    this.setState({ finished: true });
+    this.generate();
+    clearTimeout(this.t);
+    this.t = setTimeout(() => this.setState({ running: true }), this.props.handoffSpeed ?? 1400);
+  };
+
+  rewrite = () => this.generate();
+
+  generate = async () => {
+    const s = this.state;
+    const who = this.whoList.filter(w => s.who[w]);
+    const extras = this.extraList.filter(x => s.extras[x]);
+    const run = ++this.genRun;
+    this.setState({ writing: true, genError: null });
+
+    const brief = [
+      "Business name: " + (s.name || "(not given)"),
+      "What they do, in the owner's words: " + (s.brief || "(not given)"),
+      "Who the site is for: " + (who.join(", ") || "(not specified)"),
+      "Main action a visitor should take: " + (s.action || "(not specified)"),
+      "Extra sections requested: " + (extras.join(", ") || "none")
+    ].join("\n");
+
+    const prompt = brief + "\n\nWrite the home page copy for this business's website. " +
+      "Everything must be specific to THIS business and its actual industry — if it is a tax filing service write about tax filing, " +
+      "if it is a clothing brand write about the clothing. Never mention bicycles or any business other than this one. " +
+      "Plain, matter-of-fact voice. No exclamation marks, no buzzwords, no em dashes.\n\n" +
+      "Reply with ONLY a JSON object, no code fence, in this exact shape:\n" +
+      '{"kicker":"3-6 words, e.g. a location or specialism","title":"headline, max 12 words","body":"2 sentences, max 40 words",' +
+      '"ctaLabel":"2-4 words matching the main action","nav":["3 one-word or two-word page names"],' +
+      '"services":[{"title":"2-4 words","body":"1 sentence, max 22 words","price":"short price or scope line"}],' +
+      '"closeTitle":"4-8 words inviting the main action","closeNote":"1 short line, max 16 words",' +
+      '"palette":{"paper":"#rrggbb very light page background","ink":"#rrggbb near-black text","accent":"#rrggbb brand accent","band":"#rrggbb light tinted band"}}\n' +
+      "Give exactly 3 services, drawn from what they said they do. " +
+      "The palette must suit this industry (a tax firm is not a bakery): paper and band stay very light, ink stays dark enough to read at 4.5:1, accent carries the brand.";
+
+    try {
+      const raw = await window.claude.complete({
+        model: "claude-haiku-4-5",
+        max_tokens: 900,
+        system: "You are a copywriter. You return only valid JSON matching the requested shape.",
+        messages: [{ role: "user", content: prompt }]
+      });
+      if (run !== this.genRun) return;
+      const start = raw.indexOf("{");
+      const end = raw.lastIndexOf("}");
+      const data = JSON.parse(raw.slice(start, end + 1));
+      const svc = Array.isArray(data.services) ? data.services.filter(x => x && x.title).slice(0, 3) : [];
+      this.setState({
+        writing: false,
+        gen: {
+          kicker: data.kicker || "",
+          title: data.title || "",
+          body: data.body || "",
+          ctaLabel: data.ctaLabel || "",
+          nav: (Array.isArray(data.nav) ? data.nav : []).slice(0, 3).map(l => ({ label: String(l) })),
+          services: svc.map(x => ({ title: x.title, body: x.body || "", price: x.price || "" })),
+          closeTitle: data.closeTitle || "",
+          closeNote: data.closeNote || "",
+          palette: data.palette || null
+        }
+      });
+    } catch (e) {
+      if (run !== this.genRun) return;
+      this.setState({ writing: false, genError: "Could not reach the copywriter. Showing a draft from your brief." });
+    }
+  };
+
+  genRun = 0;
+
+  back = () => this.setState(s => ({ at: Math.max(0, s.at - 1) }));
+
+  restart = () => {
+    clearTimeout(this.t);
+    this.genRun++;
+    this.setState({ at: 0, running: false, finished: false, published: false, gen: null, writing: false, genError: null });
+  };
+
+  publish = () => this.setState({ published: true });
+
+  planDefs = [
+    { key: "once", name: "One-time export", price: "$39 CAD", cadence: "per site, one payment",
+      note: "Download the HTML, CSS and assets for this site. Yours to host anywhere.",
+      lines: ["Full source, no build step", "Fonts and images included", "Re-export for 30 days"] },
+    { key: "studio", name: "Studio", price: "$29 CAD", cadence: "per month",
+      note: "Five sites a month with unlimited exports and rebuilds. Cancel any time.",
+      lines: ["Five sites a month", "Unlimited exports and rebuilds", "Custom domains, no factory badge"] }
+  ];
+
+  tldDefs = [
+    { tld: ".ca",     cost: 17.99, note: "Canadian businesses only", takenBias: 34 },
+    { tld: ".com",    cost: 14.99, note: "The one people type first", takenBias: 62 },
+    { tld: ".co",     cost: 31.99, note: "Short, reads as company",   takenBias: 26 },
+    { tld: ".shop",   cost: 4.99,  note: "Good if you sell online",   takenBias: 12 },
+    { tld: ".studio", cost: 27.99, note: "Reads as a small practice", takenBias: 10 },
+    { tld: ".ai",     cost: 94.99, note: "Premium registry",          takenBias: 20 }
+  ];
+
+  hash(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return Math.abs(h);
+  }
+
+  retail(cost) { return Math.round(cost * 1.3 * 100) / 100; }
+
+  money(v) { return "$" + v.toFixed(2); }
+
+  domainRoot(q) {
+    return (q || "").toLowerCase().trim()
+      .replace(/^https?:\/\//, "").replace(/^www\./, "")
+      .replace(/\..*$/, "").replace(/[^a-z0-9-]+/g, "-")
+      .replace(/^-+|-+$/g, "").slice(0, 40);
+  }
+
+  onDomain = (e) => this.setState({ domainQuery: e.target.value, domainChecked: false });
+
+  nameSlug() {
+    return (this.state.name || "your-site").toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "your-site";
+  }
+
+  currentDomainQuery() {
+    return this.state.domainQuery === undefined ? this.nameSlug() : this.state.domainQuery;
+  }
+
+  checkDomain = () => {
+    const root = this.domainRoot(this.currentDomainQuery());
+    if (!root) return;
+    this.setState({ checking: true, domainChecked: false });
+    clearTimeout(this.d);
+    this.d = setTimeout(() => this.setState({ checking: false, domainChecked: true }), 700);
+  };
+
+  buyDomain = (domain, price) => {
+    this.setState({ buying: domain });
+    clearTimeout(this.b);
+    this.b = setTimeout(() => this.setState({
+      buying: null, boughtDomain: domain, boughtPrice: price, published: true
+    }), 1100);
+  };
+
+  openPaywall = () => {
+    if (this.state.exportPaid) { this.setState({ downloaded: true }); return; }
+    this.setState({ paywall: true, paying: false });
+  };
+  closePaywall = () => this.setState({ paywall: false, paying: false });
+  pickPlan = (key) => this.setState({ plan: key });
+  pay = () => {
+    this.setState({ paying: true });
+    clearTimeout(this.p);
+    this.p = setTimeout(() => this.setState({ paying: false, paywall: false, exportPaid: true, downloaded: true }), 1200);
+  };
+
+  toggleTheme = () => this.setState(s => {
+    const theme = s.theme === "dark" ? "light" : "dark";
+    try { localStorage.setItem("wf-theme", theme); } catch (e) {}
+    return { theme };
+  });
+
+  cap(t) { return t ? t.charAt(0).toUpperCase() + t.slice(1) : ""; }
+
+  themeDefs = [
+    { id: "ledger", keys: ["tax","account","bookkeep","legal","law","insur","financ","notar","audit","payroll","cpa"],
+      paper: "#f4f2ec", ink: "#121a2b", muted: "#4c5566", accent: "#1c3f70", line: "#ded9cf", band: "#e7e4d9",
+      font: "'Instrument Serif', Georgia, serif", texture: "rule", radius: "4px" },
+    { id: "atelier", keys: ["cloth","fashion","apparel","boutique","jewel","wear","tailor","knit","denim","shoe","bag","textile"],
+      paper: "#f3efe9", ink: "#15110d", muted: "#5a5147", accent: "#8a5334", line: "#e0d8cd", band: "#ebe4da",
+      font: "'Instrument Serif', Georgia, serif", texture: "wash", radius: "2px" },
+    { id: "kitchen", keys: ["food","cafe","coffee","bake","restaurant","cater","kitchen","pizza","brunch","bar","juice","roast"],
+      paper: "#fbf5e9", ink: "#1e160e", muted: "#5d5142", accent: "#a8501c", line: "#eadfc9", band: "#f2e7d2",
+      font: "'Instrument Serif', Georgia, serif", texture: "wash", radius: "10px" },
+    { id: "clinic", keys: ["health","clinic","dental","dentist","therap","wellness","yoga","massage","chiro","physio","care","medic","vet"],
+      paper: "#f1f6f3", ink: "#0f2220", muted: "#47605a", accent: "#1e6a52", line: "#d7e4dd", band: "#e3efe8",
+      font: "Archivo, Inter, sans-serif", texture: "none", radius: "12px" },
+    { id: "yard", keys: ["plumb","electric","construct","roof","hvac","landscap","auto","repair","garage","weld","paint","moving","clean","haul","reno","contract"],
+      paper: "#f4f3f0", ink: "#1a1917", muted: "#55534d", accent: "#a2550f", line: "#dedbd3", band: "#e9e6de",
+      font: "Archivo, Inter, sans-serif", texture: "grid", radius: "6px" },
+    { id: "signal", keys: ["software","tech","app","saas","data","ai","dev","agency","studio","design","market","consult","media","it "],
+      paper: "#f3f4f7", ink: "#0f1116", muted: "#4b4f5c", accent: "#2f37b8", line: "#dcdee6", band: "#e6e8f0",
+      font: "Archivo, Inter, sans-serif", texture: "grid", radius: "10px" },
+    { id: "salon", keys: ["salon","beauty","spa","nail","hair","brow","lash","skin","barber","makeup"],
+      paper: "#f8f1f2", ink: "#20151a", muted: "#5d4b52", accent: "#96455e", line: "#e7d8dc", band: "#f0e2e5",
+      font: "'Instrument Serif', Georgia, serif", texture: "wash", radius: "14px" },
+    { id: "field", keys: ["gym","fitness","train","coach","sport","climb","run","martial","dance","studio class"],
+      paper: "#f2f2f0", ink: "#121212", muted: "#4f4f4f", accent: "#1d4f8a", line: "#dbdbd7", band: "#e6e6e2",
+      font: "Archivo, Inter, sans-serif", texture: "grid", radius: "4px" },
+    { id: "campus", keys: ["school","tutor","educat","course","academy","lesson","music","language","daycare","camp"],
+      paper: "#f5f5f0", ink: "#15181a", muted: "#4e5458", accent: "#2a5f7d", line: "#e0dfd6", band: "#eae9df",
+      font: "'Instrument Serif', Georgia, serif", texture: "rule", radius: "8px" },
+    { id: "property", keys: ["real estate","realtor","propert","rent","broker","mortgage","stag","architect","interior"],
+      paper: "#f4f3f0", ink: "#13171b", muted: "#4c5459", accent: "#1f5147", line: "#ded9d1", band: "#e8e5dd",
+      font: "'Instrument Serif', Georgia, serif", texture: "rule", radius: "3px" }
+  ];
+
+  fallbackTheme = { id: "plain", paper: "#f5f5f4", ink: "#131313", muted: "#4f4f4f", accent: "#2a4ac4",
+    line: "#dedddb", band: "#e8e8e6", font: "Archivo, Inter, sans-serif", texture: "none", radius: "8px" };
+
+  pickTheme(s) {
+    const hay = ((s.name || "") + " " + (s.brief || "")).toLowerCase();
+    const hit = this.themeDefs.find(t => t.keys.some(k => hay.indexOf(k) >= 0));
+    const base = hit || this.fallbackTheme;
+    const g = s.gen && s.gen.palette;
+    const hex = v => (typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v.trim())) ? v.trim() : null;
+    if (!g) return base;
+    return {
+      ...base,
+      paper: hex(g.paper) || base.paper,
+      ink: hex(g.ink) || base.ink,
+      accent: hex(g.accent) || base.accent,
+      band: hex(g.band) || base.band
+    };
+  }
+
+  themeStyles(t) {
+    const mix = (a, pct, b) => "color-mix(in srgb, " + a + " " + pct + "%, " + b + ")";
+    const soft = mix(t.ink, 62, t.paper);
+    const texture =
+      t.texture === "grid"
+        ? "linear-gradient(" + mix(t.ink, 6, "transparent") + " 1px, transparent 1px) 0 0/28px 28px, linear-gradient(90deg, " + mix(t.ink, 6, "transparent") + " 1px, transparent 1px) 0 0/28px 28px, radial-gradient(120% 90% at 82% -10%, " + mix(t.accent, 12, "transparent") + ", transparent 62%)"
+        : t.texture === "wash"
+          ? "radial-gradient(120% 100% at 88% -14%, " + mix(t.accent, 16, "transparent") + ", transparent 58%), radial-gradient(90% 70% at -10% 0%, " + mix(t.accent, 8, "transparent") + ", transparent 60%)"
+          : t.texture === "rule"
+            ? "linear-gradient(" + mix(t.ink, 5, "transparent") + " 1px, transparent 1px) 0 0/100% 30px, radial-gradient(100% 80% at 90% -12%, " + mix(t.accent, 10, "transparent") + ", transparent 60%)"
+            : "radial-gradient(110% 90% at 85% -12%, " + mix(t.accent, 10, "transparent") + ", transparent 62%)";
+
+    return {
+      pageStyle: "background: " + t.paper + "; background-image: " + texture + "; color: " + t.ink +
+        "; padding: clamp(20px, 3vw, 36px); min-height: 460px; animation: wf-rise .5s ease both;",
+      navStyle: "display: flex; align-items: center; gap: 10px; padding-bottom: 20px; border-bottom: 1px solid " + t.line + "; flex-wrap: wrap;",
+      brandStyle: "font-family: " + t.font + "; font-weight: 500; font-size: 17px; letter-spacing: -0.01em; margin-right: auto;",
+      navLinkStyle: "font-size: 12px; color: " + soft + ";",
+      navCtaStyle: "font-size: 12px; padding: 5px 11px; border-radius: " + t.radius + "; border: 1px solid " + t.accent + "; color: " + t.accent + ";",
+      kickerStyle: "font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: " + t.accent + "; margin-bottom: 14px;",
+      titleStyle: "font-family: " + t.font + "; font-weight: 500; font-size: clamp(29px, 3.8vw, 46px); line-height: 1.04; letter-spacing: -0.025em; margin-bottom: 14px; text-wrap: balance;",
+      bodyStyle: "font-size: 15px; line-height: 1.62; color: " + mix(t.ink, 78, t.paper) + "; margin: 0 0 22px;",
+      ctaStyle: "font-size: 13px; padding: 9px 16px; border-radius: " + t.radius + "; background: " + t.accent + "; color: " + t.paper + ";",
+      ctaGhostStyle: "font-size: 13px; padding: 9px 16px; border-radius: " + t.radius + "; border: 1px solid " + mix(t.ink, 18, t.paper) + "; color: " + mix(t.ink, 80, t.paper) + ";",
+      cardStyle: "background: " + mix(t.paper, 70, "#ffffff") + "; border: 1px solid " + t.line + "; border-radius: " + t.radius + "; padding: 16px; display: flex; flex-direction: column; gap: 7px;",
+      cardTitleStyle: "font-family: " + t.font + "; font-weight: 500; font-size: 16px;",
+      cardBodyStyle: "font-size: 12.5px; line-height: 1.55; color: " + soft + ";",
+      priceStyle: "font-size: 12px; color: " + t.accent + "; margin-top: 3px;",
+      bandStyle: "display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 18px 20px; border-radius: " + t.radius + "; background: " + t.band + "; border: 1px solid " + mix(t.accent, 14, t.band) + ";",
+      bandTitleStyle: "font-family: " + t.font + "; font-weight: 500; font-size: 16px;",
+      bandNoteStyle: "font-size: 12.5px; color: " + soft + "; margin-top: 3px;",
+      footStyle: "display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 26px; padding-top: 16px; border-top: 1px solid " + t.line + "; font-size: 11.5px; color: " + soft + ";",
+      themeName: t.id
+    };
+  }
+
+  draft(s, who, extras, ctaLabel) {
+    const name = (s.name || "").trim();
+    const clean = ((s.brief || "").match(/[^.!?\n]+[.!?]?/g) || []).map(x => x.trim()).filter(Boolean);
+    const first = clean[0] ? clean[0].replace(/[.!?]+$/, "") : "";
+    const rest = clean.slice(1).join(" ").trim();
+    const audience = who[0] ? who[0].toLowerCase() : "anyone who gets in touch";
+
+    const title = first ? this.cap(first) + "."
+      : (name ? name + " is open." : "A site, written from your answers.");
+
+    const body = rest || (first
+      ? "Written for " + audience + ". " + ctaLabel + " and we will take it from there."
+      : "Answer the five questions on the line and this page fills in with your own words.");
+
+    const phrases = clean.slice(1).join(", ")
+      .split(/,|;|\band\b|\/|·/)
+      .map(p => p.trim().replace(/^(also|plus|we do|we offer|offering)\s+/i, "").replace(/[.!?]+$/, ""))
+      .filter(p => p.length > 2 && p.split(/\s+/).length <= 6)
+      .slice(0, 3);
+
+    const price = extras.indexOf("Price list") >= 0 ? "Priced on request" : "—";
+    const services = (phrases.length ? phrases : (first ? [first] : ["What we do"]))
+      .slice(0, 3)
+      .map((p, i) => ({
+        title: this.cap(p),
+        body: "For " + String(who[i % Math.max(who.length, 1)] || audience).toLowerCase() + ". " + ctaLabel + " to start.",
+        price
+      }));
+
+    return { title, body, services };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const n = this.stationDefs.length;
+    const cur = this.stationDefs[Math.min(s.at, n - 1)];
+    const passed = s.finished ? n : s.at;
+    const slug = (s.name || "your-site").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    const chosenWho = this.whoList.filter(w => s.who[w]);
+    const chosenExtras = this.extraList.filter(x => s.extras[x]);
+
+    const w = (s.brief || "").trim() ? s.brief.trim().split(/\s+/).length : 0;
+    const ctaLabel = s.action === "Buy online" ? "Shop now"
+      : s.action === "Join the newsletter" ? "Get the newsletter"
+      : (s.action || "Get in touch");
+    const derived = this.draft(s, chosenWho, chosenExtras, ctaLabel);
+    const g = s.gen;
+    const ts = this.themeStyles(this.pickTheme(s));
+    const domainRoot = this.domainRoot(this.currentDomainQuery()) || slug;
+
+    const logLines = [
+      { mark: "00", text: s.boughtDomain ? "Address claimed · " + s.boughtDomain : "Address pending · no domain yet" },
+      { mark: "01", text: "Sheet loaded · " + (s.name || "unnamed") },
+      { mark: "02", text: "Headline drafted from brief (" + w + " words in)" },
+      { mark: "03", text: "Copy aimed at " + (chosenWho.length || "no") + " audience" + (chosenWho.length === 1 ? "" : "s") },
+      { mark: "04", text: "Primary action · " + s.action },
+      { mark: "05", text: "Extras bolted on · " + (chosenExtras.join(", ") || "none") }
+    ];
+
+    return {
+      theme: s.theme,
+      isDark: s.theme === "dark",
+      isLight: s.theme === "light",
+      themeLabel: s.theme === "dark" ? "Bright" : "Dark",
+      toggleTheme: this.toggleTheme,
+
+      onLine: !s.running,
+      isReady: s.running,
+
+      lineStatus: s.running
+        ? "line idle · 1 unit complete"
+        : "line running · station " + Math.min(s.at + 1, n) + " of " + n,
+      stationTag: "Station " + Math.min(s.at + 1, n) + " / " + n,
+      stationName: cur.label,
+      question: cur.question,
+      questionNote: cur.note,
+      addsNote: cur.adds,
+
+      atDomain: cur.key === "domain",
+      atName: cur.key === "name",
+      atWork: cur.key === "work",
+      atWho: cur.key === "who",
+      atAction: cur.key === "action",
+      atExtras: cur.key === "extras",
+
+      name: s.name,
+      brief: s.brief,
+      onName: (e) => this.setState({ name: e.target.value }),
+      onBrief: (e) => this.setState({ brief: e.target.value }),
+      audiences: this.whoList.map(label => ({
+        label, on: !!s.who[label], off: !s.who[label],
+        toggle: () => this.setState(st => ({ who: { ...st.who, [label]: !st.who[label] } }))
+      })),
+      actions: this.actionList.map(label => ({
+        label, on: s.action === label, off: s.action !== label,
+        pick: () => this.setState({ action: label })
+      })),
+      extras: this.extraList.map(label => ({
+        label, on: !!s.extras[label], off: !s.extras[label],
+        toggle: () => this.setState(st => ({ extras: { ...st.extras, [label]: !st.extras[label] } }))
+      })),
+
+      advance: this.advance,
+      back: this.back,
+      canGoBack: s.at > 0 && !s.finished,
+      advanceLabel: s.finished ? "Rolling off…"
+        : (s.at >= n - 1 ? "Send it down the line"
+        : (cur.key === "domain" && !s.boughtDomain ? "Skip for now" : "Next station")),
+
+      trackRef: this.trackRef,
+      pieceRef: this.pieceRef,
+      stations: this.stationDefs.map((st, i) => ({
+        label: st.label,
+        icon: st.icon,
+        working: i === s.at && !s.finished,
+        idleHead: !(i === s.at && !s.finished),
+        doneState: s.finished ? true : i < s.at,
+        waiting: !s.finished && i > s.at
+      })),
+      part: {
+        header: passed >= 2,
+        hero: passed >= 3,
+        body: passed >= 4,
+        cta: passed >= 5,
+        blocks: passed >= 6,
+        footer: passed >= 6,
+        empty: passed < 2
+      },
+      log: logLines.slice(0, s.finished ? n : passed + 1),
+
+      url: s.boughtDomain ? s.boughtDomain : "preview.factory.build/" + slug,
+      published: !!s.published,
+      publishLabel: s.published ? "Published" : "Publish",
+      restart: this.restart,
+      publish: this.publish,
+      readyNote: s.boughtDomain
+        ? "Live on " + s.boughtDomain + ". Send it down the line again any time — hand edits are merged into the new run."
+        : s.published
+        ? "Live on your domain. Send it down the line again any time — hand edits are merged into the new run."
+        : "Five stations, four pages, written and laid out from your answers. Nothing is public until you publish.",
+
+      pages: [
+        { label: "Home", words: String(90 + w * 4) },
+        { label: "Services", words: String(120 + derived.services.length * 70) },
+        { label: "About", words: String(60 + w * 2) },
+        { label: "Contact", words: String(70 + chosenExtras.length * 18) }
+      ].map(p => ({
+        ...p,
+        selected: p.label === (s.page || "Home"),
+        unselected: p.label !== (s.page || "Home"),
+        pick: () => this.setState({ page: p.label })
+      })),
+
+      ...ts,
+      domainQuery: this.currentDomainQuery(),
+      onDomain: this.onDomain,
+      checkDomain: this.checkDomain,
+      checking: !!s.checking,
+      domainChecked: !!s.domainChecked && !s.checking,
+      checkLabel: s.checking ? "Checking…" : "Check availability",
+      domainRoot: domainRoot,
+      boughtDomain: s.boughtDomain || "",
+      hasDomain: !!s.boughtDomain,
+      noDomain: !s.boughtDomain,
+      domainReceipt: s.boughtDomain
+        ? s.boughtDomain + " registered · " + this.money(s.boughtPrice) + " CAD for the first year"
+        : "",
+      domainResults: this.tldDefs.map(d => {
+        const domain = domainRoot + d.tld;
+        const taken = (this.hash(domain) % 100) < d.takenBias;
+        const price = this.retail(d.cost);
+        return {
+          domain, note: d.note,
+          price: this.money(price) + " CAD",
+          per: "/year",
+          available: !taken, taken,
+          buying: s.buying === domain,
+          notBuying: s.buying !== domain,
+          buyLabel: s.buying === domain ? "Registering…" : "Buy",
+          buy: () => this.buyDomain(domain, price)
+        };
+      }),
+
+      secondaryLabel: chosenExtras.indexOf("Photo gallery") >= 0 ? "See our work"
+        : chosenExtras.indexOf("Price list") >= 0 ? "See prices" : "Read more",
+      slug,
+      paywallOpen: !!s.paywall,
+      closePaywall: this.closePaywall,
+      openPaywall: this.openPaywall,
+      pay: this.pay,
+      paying: !!s.paying,
+      notPaying: !s.paying,
+      exportLocked: !s.exportPaid,
+      exportPaid: !!s.exportPaid,
+      downloaded: !!s.downloaded,
+      exportLabel: s.exportPaid ? "Download .zip" : "Export source",
+      payLabel: s.paying ? "Taking payment…"
+        : "Pay " + (this.planDefs.find(p => p.key === (s.plan || "once")) || this.planDefs[0]).price + " and export",
+      plans: this.planDefs.map(p => ({
+        ...p,
+        selected: p.key === (s.plan || "once"),
+        unselected: p.key !== (s.plan || "once"),
+        pick: () => this.pickPlan(p.key)
+      })),
+
+      writing: !!s.writing,
+      genError: s.genError || "",
+      rewrite: this.rewrite,
+
+      ctaLabel: (g && g.ctaLabel) || ctaLabel,
+      heroKicker: (g && g.kicker) || chosenWho.slice(0, 2).join(" · ") || (s.name || "New site"),
+      heroTitle: (g && g.title) || derived.title,
+      heroBody: (g && g.body) || derived.body,
+      services: (g && g.services && g.services.length) ? g.services : derived.services,
+      nav: (g && g.nav && g.nav.length) ? g.nav
+        : [{ label: "What we do" }, { label: "About" }, { label: "Contact" }],
+      closeTitle: (g && g.closeTitle) || "Ready when you are",
+      hours: (g && g.closeNote) || (chosenExtras.indexOf("Map and hours") >= 0
+        ? "Hours and directions are on the Contact page"
+        : ctaLabel + " from any page on the site")
+    };
+  }
+}
+</script>
+</body>
+</html>
