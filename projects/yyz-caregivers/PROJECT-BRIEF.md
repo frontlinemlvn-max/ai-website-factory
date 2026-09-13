@@ -240,6 +240,18 @@ Examples:
 
 - Dedicated privacy/incident contact: privacy@getcarequick.ca, to be set up once the domain is registered. Until then, frontline.mlvn@gmail.com remains the interim fallback contact for privacy and incident matters.
 
+### Owner-Supplied Cancellation Notice Input — September 13, 2026
+
+- Cancellation/rescheduling notice: 48 hours requested as a courtesy expectation. No penalty applies regardless of notice given, consistent with the earlier "flexible, no penalty" decision. A penalty for short-notice cancellations remains a separate, not-yet-made decision if wanted later.
+
+### Owner-Supplied Complaints Response Time Input — September 13, 2026
+
+- Complaints response time: 3 business days. Complaints still go directly to the founder by phone/email; no formal escalation path beyond that exists yet.
+
+### Owner-Supplied Termination Notice Input — September 13, 2026
+
+- Termination notice: kept as "reasonable notice," not defined as a fixed number of days. This was a deliberate choice, not an oversight — flag it to the lawyer during review since "reasonable" is judged case-by-case rather than a bright-line rule.
+
 ### Intake-Form Change Request
 
 The owner initially requested a comprehensive intake form with condition selection and future care-plan recommendations, then approved the safer default: a non-sending Support Needs Assessment using broad daily-living topics. It will produce only a temporary on-screen summary and must not request diagnoses, medication, treatment, health-card, financial, emergency, or detailed care-history information.

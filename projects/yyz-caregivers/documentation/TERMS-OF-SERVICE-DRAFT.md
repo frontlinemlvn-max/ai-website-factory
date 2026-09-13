@@ -38,7 +38,7 @@ New clients begin with a free in-home assessment visit. **[OPEN — see Open Ite
 
 ## 6. Scheduling and Cancellation
 
-Clients may cancel or reschedule a visit without penalty. **[OPEN]** A specific notice period (if any) has not been set; if operational experience later shows a minimum notice period is needed, this section should be updated accordingly and clients should be notified of the change in advance.
+Clients are asked to give at least 48 hours' notice to cancel or reschedule a visit. No penalty or fee applies for cancellations, including those made with less notice; the 48-hour window is a courtesy expectation, not an enforced requirement. **[OPEN]** If a penalty for short-notice cancellation is wanted later, that is a separate decision requiring an update to this section.
 
 ## 7. Fees and Payment
 
@@ -50,11 +50,11 @@ Pricing is provided on request and is not published on the website (see `PROJECT
 
 ## 9. Complaints Process
 
-Complaints may be directed to the founder by phone or email using the contact details in Section 14. **[OPEN — see Open Items.]** A formal escalation path and expected response time have not yet been defined; this section should be expanded once a process exists.
+Complaints may be directed to the founder by phone or email using the contact details in Section 14. YYZ Caregivers will respond within 3 business days. **[OPEN]** A formal escalation path beyond direct founder response has not yet been defined.
 
 ## 10. Termination of Services
 
-Either the client or YYZ Caregivers may end the service relationship with reasonable notice, without needing to state a specific cause. **[OPEN]** A specific notice period (e.g., a minimum number of days) has not yet been set.
+Either the client or YYZ Caregivers may end the service relationship with reasonable notice, without needing to state a specific cause. "Reasonable notice" is intentionally left undefined as a fixed number of days, to be judged based on the circumstances at the time.
 
 ## 11. Intellectual Property
 
@@ -80,9 +80,8 @@ These must be resolved, with legal review, before this draft can move from "draf
 |---|---|
 | Liability, warranty, and indemnification language | Not drafted here — requires a lawyer |
 | Separate written service agreement vs. Terms-only | Not yet decided |
-| Cancellation notice period, if any | Not yet decided (currently: flexible, no penalty) |
-| Complaints escalation path and response time | Not yet defined (currently: direct to founder only) |
-| Termination notice period (specific number of days) | Not yet decided (currently: reasonable notice, no cause required) |
+| Penalty for short-notice cancellation (currently: none) | Open only if a penalty is wanted in the future |
+| Complaints escalation path beyond direct founder response | Not yet defined |
 | Governing law clause completeness | Requires professional legal review |
 
 No claim of legal compliance or enforceability is made anywhere in this document. It is a working draft to organize known facts and known gaps ahead of professional review.
