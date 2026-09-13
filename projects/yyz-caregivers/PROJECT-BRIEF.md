@@ -252,6 +252,10 @@ Examples:
 
 - Termination notice: kept as "reasonable notice," not defined as a fixed number of days. This was a deliberate choice, not an oversight — flag it to the lawyer during review since "reasonable" is judged case-by-case rather than a bright-line rule.
 
+### Owner-Supplied Service Agreement Structure Input — September 13, 2026
+
+- Service agreement structure: Terms of Service only — no separate signed per-client service agreement will be used. This raises the importance of thorough legal review of the Terms draft, since it alone must govern every client relationship (schedule, scope, fees confirmed directly with each client rather than in a separate contract).
+
 ### Intake-Form Change Request
 
 The owner initially requested a comprehensive intake form with condition selection and future care-plan recommendations, then approved the safer default: a non-sending Support Needs Assessment using broad daily-living topics. It will produce only a temporary on-screen summary and must not request diagnoses, medication, treatment, health-card, financial, emergency, or detailed care-history information.

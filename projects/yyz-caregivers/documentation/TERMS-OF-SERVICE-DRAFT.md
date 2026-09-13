@@ -34,7 +34,7 @@ This section must describe only what is actually true and current at the time of
 
 ## 5. Consultation and Service Agreement
 
-New clients begin with a free in-home assessment visit. **[OPEN — see Open Items.]** It has not yet been decided whether a separate written service agreement (covering fees, schedule, and scope for that specific client) will be signed in addition to these Terms, or whether these Terms are the only governing document. This section must be completed before publication, since it affects what these Terms need to cover.
+New clients begin with a free in-home assessment visit. These Terms are the sole governing document for the client relationship — no separate written service agreement is used. Because of this, these Terms (once finalized with legal review) must be complete enough to cover per-client specifics such as agreed schedule and scope, typically confirmed directly with the client rather than in a separate signed contract.
 
 ## 6. Scheduling and Cancellation
 
@@ -79,7 +79,6 @@ These must be resolved, with legal review, before this draft can move from "draf
 | Item | Status |
 |---|---|
 | Liability, warranty, and indemnification language | Not drafted here — requires a lawyer |
-| Separate written service agreement vs. Terms-only | Not yet decided |
 | Penalty for short-notice cancellation (currently: none) | Open only if a penalty is wanted in the future |
 | Complaints escalation path beyond direct founder response | Not yet defined |
 | Governing law clause completeness | Requires professional legal review |
