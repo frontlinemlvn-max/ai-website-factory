@@ -1,12 +1,12 @@
 # YYZ Caregivers — Launch Readiness
 
-- **Review date:** September 9, 2026
+- **Review date:** September 9, 2026 (updated September 12, 2026)
 - **Scope:** Final review of the local pilot and completed specialist reports
 - **Decision:** **READY FOR HUMAN APPROVAL REVIEW**
 
 ## Project Summary
 
-YYZ Caregivers is a seven-page static pilot for a proposed private-home personal support worker service in the Greater Toronto Area. It includes Home, About, Services, Contact, FAQ, Privacy, and Terms pages; accessible responsive navigation; a non-sending consultation preview; local assets; and no backend, database, authentication, analytics, or third-party runtime.
+YYZ Caregivers is an eight-page static pilot for a proposed private-home personal support worker service in the Greater Toronto Area. It includes Home, About, Services, Contact, Support Needs Assessment (`intake.html`, added September 10, 2026), FAQ, Privacy, and Terms pages; accessible responsive navigation; a non-sending consultation preview and a non-sending support needs assessment; local assets; and no backend, database, authentication, analytics, or third-party runtime.
 
 The pilot accurately identifies unverified business information and does not fabricate contact details, credentials, pricing, availability, testimonials, service outcomes, policies, or production URLs.
 
@@ -17,16 +17,20 @@ Completed stages: Intake, Architecture, Design, Development, Debugging, QA and r
 - QA passed after QA-001 and QA-002 were fixed and independently retested.
 - SEO passed for the private pilot; public indexing remains deliberately disabled.
 - Security found zero Critical, High, Medium, or Low exploitable vulnerabilities.
-- Performance found the 94,163-byte site within budget with no justified source optimization.
-- Accessibility found zero confirmed defects and three manual production-verification items.
+- Performance found the site within budget with no justified source optimization.
+- Accessibility found zero confirmed defects, three manual production-verification items, and one Medium finding (A11Y-004) identified and fixed during the September 12, 2026 retest.
 
 ## Final Regression Evidence
 
-- Project checker passed: seven pages and all 176 local references resolved.
-- Frontend smoke suite passed all structure, metadata, privacy, indexing, form-safety, regression, contrast, and size checks.
-- JavaScript syntax validation passed.
-- All 50 factory regression tests passed in an isolated temporary project; real projects were unchanged and production deployment was disabled.
+- Project checker passed (rerun September 12, 2026): eight pages and all 215 local references resolved.
+- Frontend smoke suite passed (rerun September 12, 2026) all structure, metadata, privacy, indexing, form-safety, regression, contrast, and size checks, including the Support Needs Assessment checks added for `intake.html` and the "support topics use an accessible required group" check that verifies the A11Y-004 fix.
+- JavaScript syntax validation passed (rerun September 12, 2026) for `main.js` and `assessment.js`.
+- All 50 factory regression tests passed (rerun September 12, 2026) in an isolated temporary project; real projects were unchanged and production deployment was disabled.
 - Previous live QA verified navigation, both Contact paths, error/success states, the 500-character boundary, reset/reload behavior, responsive layouts, and no console error or form transmission.
+
+## Accessibility Retest Addendum (September 12, 2026)
+
+The Accessibility Specialist's September 12, 2026 retest of the Support Needs Assessment found and fixed A11Y-004: the topics `fieldset` in `intake.html` had the HTML `required` attribute misapplied to only its first checkbox, which could mislead a screen-reader user into believing that one topic was individually mandatory rather than any one of the group. The attribute was removed; the group's "select at least one" enforcement already existed independently in `assessment.js` and in the visible legend/error text, so no functional validation changed. The frontend smoke suite was rerun and passed, including a dedicated check for this group. See `reports/ACCESSIBILITY-REPORT.md` for full evidence. This does not change the Deployment Readiness decision below, since it was a pre-launch fix verified before this report's approval gate.
 
 ## Outstanding Issues and Human Decisions
 
