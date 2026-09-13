@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360" role="img" aria-labelledby="title desc">
+  <title id="title">Abstract home and connection</title>
+  <desc id="desc">A simple line drawing of a home surrounded by gentle connecting curves.</desc>
+  <rect width="480" height="360" rx="32" fill="#DDF2EE"/>
+  <circle cx="91" cy="79" r="42" fill="#FFFCF7"/>
+  <circle cx="405" cy="283" r="58" fill="#C7E8E1"/>
+  <path d="M120 180 240 82l120 98v112H120Z" fill="#FFFCF7" stroke="#123047" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M207 292v-92h66v92" fill="#DDF2EE" stroke="#123047" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M69 253c32 35 69 54 111 58M411 127c-26-30-56-48-91-55" fill="none" stroke="#0B675F" stroke-linecap="round" stroke-width="10"/>
+  <circle cx="61" cy="244" r="10" fill="#0B675F"/>
+  <circle cx="419" cy="136" r="10" fill="#0B675F"/>
+</svg>
