@@ -219,6 +219,23 @@ Examples:
 - Payment: invoice after service, payable by e-transfer or cheque; no online payment processor. Payment due timing not yet set.
 - A production Terms of Service draft incorporating these inputs, with liability/indemnification language intentionally left for a lawyer to draft, has been created at `documentation/TERMS-OF-SERVICE-DRAFT.md`. It is a draft only and is not approved for publication; the live `src/terms.html` pilot page remains unchanged.
 
+### Owner-Supplied Checklist Follow-Up Inputs — September 13, 2026
+
+- Business number: the sole proprietorship has a registered business number, confirmed to exist (not recorded here) for use in setting up entity-owned third-party accounts.
+- PSW certification: the founder is personally PSW-certified and provides care directly.
+- Founder story/bio for About page: keep generic for now; revisit before public launch.
+- In-home assessment visit fee: free.
+- Domain registrar: not yet decided.
+- Dedicated privacy/incident contact: still undecided; continue using frontline.mlvn@gmail.com as interim fallback.
+- Complaints process: complaints go directly to the founder by phone/email; no formal escalation process or timeline defined yet.
+- Termination of service: either party may end the relationship with reasonable notice, no specific cause required.
+- Payment due timing: net 5 days from invoice date.
+
+### Owner-Supplied Travel Boundary Inputs — September 13, 2026
+
+- Travel boundary: approximately 15 minutes' travel time from the founder's home base (exact base location kept private, consistent with the existing decision to keep the business address private), rather than a strict municipal-boundary cutoff.
+- Edge cases: areas just outside the listed municipalities (Toronto east end/Scarborough, North York, Pickering, Ajax, Whitby, Oshawa) are considered case-by-case rather than automatically excluded. Site copy should invite inquiries from nearby areas rather than stating a firm hard boundary.
+
 ### Intake-Form Change Request
 
 The owner initially requested a comprehensive intake form with condition selection and future care-plan recommendations, then approved the safer default: a non-sending Support Needs Assessment using broad daily-living topics. It will produce only a temporary on-screen summary and must not request diagnoses, medication, treatment, health-card, financial, emergency, or detailed care-history information.

@@ -34,7 +34,7 @@ This section must describe only what is actually true and current at the time of
 
 ## 5. Consultation and Service Agreement
 
-New clients begin with an in-home assessment visit. **[OPEN — see Open Items.]** It has not yet been decided whether a separate written service agreement (covering fees, schedule, and scope for that specific client) will be signed in addition to these Terms, or whether these Terms are the only governing document. This section must be completed before publication, since it affects what these Terms need to cover.
+New clients begin with a free in-home assessment visit. **[OPEN — see Open Items.]** It has not yet been decided whether a separate written service agreement (covering fees, schedule, and scope for that specific client) will be signed in addition to these Terms, or whether these Terms are the only governing document. This section must be completed before publication, since it affects what these Terms need to cover.
 
 ## 6. Scheduling and Cancellation
 
@@ -42,7 +42,7 @@ Clients may cancel or reschedule a visit without penalty. **[OPEN]** A specific 
 
 ## 7. Fees and Payment
 
-Pricing is provided on request and is not published on the website (see `PROJECT-BRIEF.md`). Once services are rendered, the intended payment process is: invoice the client after the visit, payable by e-transfer or cheque. No online payment processor is currently used. **[OPEN]** Payment due date/terms (e.g., due on receipt, due within X days) have not been set.
+Pricing is provided on request and is not published on the website (see `PROJECT-BRIEF.md`). The initial in-home assessment visit is free. Once services are rendered, the intended payment process is: invoice the client after the visit, payment due within 5 days of the invoice date, payable by e-transfer or cheque. No online payment processor is currently used.
 
 ## 8. Liability, Warranties, and Indemnification
 
@@ -50,11 +50,11 @@ Pricing is provided on request and is not published on the website (see `PROJECT
 
 ## 9. Complaints Process
 
-**[OPEN — see Open Items.]** No formal complaints process has been defined yet. Until one exists, complaints should be directed to the general contact address, and a real process (who handles it, expected response time, escalation path) should be documented here before publication.
+Complaints may be directed to the founder by phone or email using the contact details in Section 14. **[OPEN — see Open Items.]** A formal escalation path and expected response time have not yet been defined; this section should be expanded once a process exists.
 
 ## 10. Termination of Services
 
-**[OPEN]** Conditions under which either the client or YYZ Caregivers may end the service relationship (notice period, reasons) have not yet been defined.
+Either the client or YYZ Caregivers may end the service relationship with reasonable notice, without needing to state a specific cause. **[OPEN]** A specific notice period (e.g., a minimum number of days) has not yet been set.
 
 ## 11. Intellectual Property
 
@@ -81,9 +81,8 @@ These must be resolved, with legal review, before this draft can move from "draf
 | Liability, warranty, and indemnification language | Not drafted here — requires a lawyer |
 | Separate written service agreement vs. Terms-only | Not yet decided |
 | Cancellation notice period, if any | Not yet decided (currently: flexible, no penalty) |
-| Payment due terms (timing) | Not yet decided (currently: invoice after service, e-transfer/cheque) |
-| Formal complaints process | Not yet defined |
-| Termination conditions | Not yet defined |
+| Complaints escalation path and response time | Not yet defined (currently: direct to founder only) |
+| Termination notice period (specific number of days) | Not yet decided (currently: reasonable notice, no cause required) |
 | Governing law clause completeness | Requires professional legal review |
 
 No claim of legal compliance or enforceability is made anywhere in this document. It is a working draft to organize known facts and known gaps ahead of professional review.
