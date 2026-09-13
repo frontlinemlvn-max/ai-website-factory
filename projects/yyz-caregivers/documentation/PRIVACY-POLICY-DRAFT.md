@@ -51,7 +51,7 @@ YYZ Caregivers currently operates as a solo founder/operator. The founder is the
 
 ## 6. Third-Party Services and Vendors
 
-**[OPEN — see Open Items.]** As of this draft, no vendor, CRM, scheduling tool, or form processor has been selected. Until one is chosen and named here, this policy cannot claim a specific data flow. If email alone is used to receive inquiries, this section should state that plainly and name the email provider only if relevant to how data is processed or stored.
+Inquiries are received and managed by email only — no CRM, scheduling tool, or third-party form processor is used. Client information is not shared with, or processed by, any vendor beyond the email service itself.
 
 ## 7. Retention
 
@@ -69,7 +69,7 @@ Requests can be made to the privacy contact in Section 10.
 
 ## 9. Security Measures
 
-**[OPEN — see Open Items.]** This section should describe the actual safeguards in place once a real system exists (e.g., device security, email account protection, access limited to the founder). It must not describe safeguards that are not actually in place.
+Client inquiries are received through a single email account, accessed only by the founder. **Two-factor authentication is not currently enabled on this account.** Before this system handles real client information, enabling two-factor authentication is strongly recommended as a baseline safeguard against unauthorized access. This section will be updated to reflect the actual security measures in place at the time of publication — it must not describe protections that are not actually active.
 
 ## 10. Incident Response
 
@@ -90,8 +90,7 @@ These must be resolved, ideally with legal/accounting input, before this draft c
 | Item | Status |
 |---|---|
 | Specific retention period | TBD pending legal/accounting input |
-| Vendor/CRM/scheduling tool for processing inquiries | Not yet selected |
-| Security measures for the live system | Cannot be described until the system is built |
+| Two-factor authentication on the inquiry email account | Not currently enabled — recommended before handling real client information |
 | Detailed incident response process and any regulatory notification duties | Not yet defined |
 | Confirmation of applicable law (PIPEDA and any Ontario-specific requirements) | Requires professional legal review — not asserted here |
 
