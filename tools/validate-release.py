@@ -7,42 +7,10 @@ import re
 import subprocess
 import sys
 
+from secret_scan import secret_findings
+
 
 FACTORY_ROOT = Path(__file__).resolve().parent.parent
-IGNORED_PARTS = {".git", ".vercel", "node_modules", "__pycache__"}
-SAFE_ENV_FILES = {".env.example", ".env.sample", ".env.template"}
-SENSITIVE_NAMES = {
-    ".env",
-    "credentials.json",
-    "secrets.json",
-    "service-account.json",
-    "id_rsa",
-    "id_ed25519",
-}
-SENSITIVE_SUFFIXES = {".key", ".p12", ".pfx", ".pem"}
-SECRET_SIGNATURES = (
-    ("private key material", re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----")),
-    ("AWS access key", re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b")),
-    ("GitHub access token", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{30,}\b")),
-    ("OpenAI API key", re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b")),
-    ("Stripe live key", re.compile(r"\b(?:sk|rk)_live_[A-Za-z0-9]{16,}\b")),
-    ("Slack access token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{16,}\b")),
-    ("Google API key", re.compile(r"\bAIza[A-Za-z0-9_-]{30,}\b")),
-)
-GENERIC_SECRET_ASSIGNMENT = re.compile(
-    r"(?im)^\s*(?:export\s+)?(?:api[_-]?key|access[_-]?token|auth[_-]?token|"
-    r"client[_-]?secret|password|secret[_-]?key)\s*[:=]\s*['\"]?([^'\"\s#]{12,})"
-)
-PLACEHOLDER_WORDS = (
-    "example",
-    "placeholder",
-    "replace",
-    "your_",
-    "your-",
-    "changeme",
-    "dummy",
-    "redacted",
-)
 APPROVAL_DECISION = re.compile(r"(?mi)^\s*-\s+\*\*Decision:\*\*\s+APPROVED\s*$")
 APPROVAL_TIME = re.compile(
     r"(?mi)^\s*-\s+\*\*Recorded at:\*\*\s+\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\s*$"
@@ -179,54 +147,6 @@ def validate_project_checks(project_name, project_directory, results):
         results.pass_check("HTML, links, assets, JavaScript, and CSS checks pass")
     else:
         results.fail_check(f"project checks are failing; run './factory check {project_name}'")
-
-
-def ignored_path(relative_path):
-    return any(part in IGNORED_PARTS for part in relative_path.parts)
-
-
-def sensitive_filename(path):
-    name = path.name.lower()
-    if name in SAFE_ENV_FILES:
-        return False
-    if name in SENSITIVE_NAMES or (name.startswith(".env.") and name not in SAFE_ENV_FILES):
-        return True
-    return path.suffix.lower() in SENSITIVE_SUFFIXES
-
-
-def likely_secret_assignments(text):
-    for match in GENERIC_SECRET_ASSIGNMENT.finditer(text):
-        value = match.group(1).lower()
-        if not any(placeholder in value for placeholder in PLACEHOLDER_WORDS):
-            return True
-    return False
-
-
-def secret_findings(project_directory):
-    findings = []
-    for path in sorted(project_directory.rglob("*")):
-        if path.is_symlink() or not path.is_file():
-            continue
-        relative_path = path.relative_to(project_directory)
-        if ignored_path(relative_path):
-            continue
-
-        if sensitive_filename(path):
-            findings.append(f"sensitive file present: {relative_path}")
-
-        try:
-            if path.stat().st_size > 2_000_000:
-                continue
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-
-        for label, pattern in SECRET_SIGNATURES:
-            if pattern.search(text):
-                findings.append(f"possible {label} in {relative_path}")
-        if likely_secret_assignments(text):
-            findings.append(f"possible hard-coded secret assignment in {relative_path}")
-    return findings
 
 
 def validate_secrets(project_directory, results):

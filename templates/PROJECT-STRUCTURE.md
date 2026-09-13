@@ -42,4 +42,10 @@ projects/
     │   ├── DEPLOYMENT.md
     │   └── CHANGELOG.md
     │
-    └── README.md
+    ├── README.md
+    ├── .env.example
+    ├── .gitignore
+    └── vercel.json
+```
+
+New projects also receive a gitignored-secrets template, a project `.gitignore`, and static response-header configuration from `templates/security/`. Next.js API hardening files live under `templates/security/nextjs/` and are copied only when a project adds a Node backend.

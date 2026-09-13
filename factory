@@ -24,6 +24,7 @@ Usage:
   ./factory rollback <project-name> <deployment-id-or-url> --dry-run
   ./factory rollback <project-name> <deployment-id-or-url> --confirm ROLLBACK
   ./factory preview <project-name> [port]
+  ./factory scan-secrets [project-name]
   ./factory check <project-name>
   ./factory test
 
@@ -46,6 +47,8 @@ Examples:
   ./factory rollback client-website dpl_previousDeployment --confirm ROLLBACK
   ./factory preview factory-demo
   ./factory preview factory-demo 9000
+  ./factory scan-secrets
+  ./factory scan-secrets factory-demo
   ./factory check factory-demo
   ./factory test
 EOF
@@ -276,10 +279,34 @@ case "$COMMAND" in
 
     command -v python3 >/dev/null 2>&1 || fail "python3 is required to run a local preview."
 
+    PREVIEW_SERVER="$FACTORY_ROOT/tools/preview-server.py"
+    [ -f "$PREVIEW_SERVER" ] || fail "preview server is missing at $PREVIEW_SERVER."
+
     printf 'Previewing %s at http://127.0.0.1:%s/\n' "$PROJECT_NAME" "$PORT"
     printf 'Press Ctrl-C to stop.\n'
 
-    exec python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$SITE_DIR"
+    exec python3 "$PREVIEW_SERVER" --port "$PORT" --bind 127.0.0.1 --directory "$SITE_DIR"
+    ;;
+  scan-secrets)
+    if [ "$#" -gt 2 ]; then
+      usage >&2
+      exit 1
+    fi
+
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to scan for secrets."
+    SCANNER="$FACTORY_ROOT/tools/secret_scan.py"
+    [ -f "$SCANNER" ] || fail "secret scanner is missing at $SCANNER."
+
+    if [ "$#" -eq 1 ]; then
+      exec python3 "$SCANNER"
+    fi
+
+    if [ "$2" = "." ]; then
+      exec python3 "$SCANNER" .
+    fi
+
+    validate_project_name "$2"
+    exec python3 "$SCANNER" "$2"
     ;;
   check)
     if [ "$#" -ne 2 ]; then

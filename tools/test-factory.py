@@ -199,7 +199,7 @@ def copy_factory(destination):
     for name in ("agents", "documentation", "templates", "tools", "workflows"):
         source = FACTORY_ROOT / name
         shutil.copytree(source, destination / name, symlinks=True, ignore=ignore)
-    for name in ("factory", "CLAUDE.md", "README.md"):
+    for name in ("factory", "CLAUDE.md", "README.md", ".env.example"):
         shutil.copy2(FACTORY_ROOT / name, destination / name)
     (destination / "projects").mkdir()
 
@@ -369,6 +369,7 @@ exit 1
             env=self.environment,
         )
         served = False
+        headers = {}
         output = ""
         try:
             deadline = time.monotonic() + 8
@@ -378,6 +379,7 @@ exit 1
                 try:
                     with urlopen(f"http://127.0.0.1:{port}/", timeout=0.5) as response:
                         body = response.read().decode("utf-8")
+                        headers = dict(response.headers)
                     served = response.status == 200 and "Factory suite project" in body
                     if served:
                         break
@@ -392,6 +394,12 @@ exit 1
                 process.kill()
                 output = process.communicate(timeout=3)[0]
         require(served, f"preview did not serve the fixture\n{output[-1200:]}")
+        csp = headers.get("Content-Security-Policy") or headers.get("content-security-policy") or ""
+        require("default-src 'self'" in csp, f"preview omitted CSP header\n{headers}")
+        require(
+            (headers.get("X-Content-Type-Options") or headers.get("x-content-type-options") or "") == "nosniff",
+            "preview omitted X-Content-Type-Options",
+        )
 
 
 def run_suite(suite):
@@ -408,6 +416,7 @@ def run_suite(suite):
             "./factory deploy",
             "./factory rollback",
             "./factory preview",
+            "./factory scan-secrets",
             "./factory test",
         )
 
@@ -444,6 +453,8 @@ def run_suite(suite):
         suite.expect(result, 0, "Project created successfully")
         require(suite.status_file.is_file(), "project status file was not created")
         require((suite.project / "PROJECT-BRIEF.md").is_file(), "project brief was not created")
+        require((suite.project / ".env.example").is_file(), "project env template was not created")
+        require((suite.project / ".gitignore").is_file(), "project gitignore was not created")
 
     suite.case("create builds the standard project scaffold", create_case)
     suite.case(
@@ -915,6 +926,26 @@ def run_suite(suite):
 
     suite.case("check reports a broken local link", broken_link_case)
     suite.case("preview serves only the isolated site", suite.preview_works)
+
+    def secret_scan_clean_case():
+        result = suite.run("scan-secrets", PROJECT_NAME)
+        suite.expect(result, 0, "PASSED: secret scan is clean", "No secret values were displayed")
+
+    suite.case("secret scan passes a clean project", secret_scan_clean_case)
+
+    def secret_scan_detects_key_case():
+        planted = suite.project / "src" / "leaked.js"
+        secret_value = "sk-proj-" + ("B" * 48)
+        write_text(planted, f"const token = '{secret_value}';\n")
+        try:
+            result = suite.run("scan-secrets", PROJECT_NAME)
+            suite.expect(result, 1, "possible OpenAI API key", "No secret values were displayed")
+            require(secret_value not in result.output, "secret scanner printed a secret value")
+        finally:
+            if planted.exists():
+                planted.unlink()
+
+    suite.case("secret scan reports a planted key without printing it", secret_scan_detects_key_case)
 
 
 def main():

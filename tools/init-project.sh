@@ -43,6 +43,23 @@ mkdir -p "$PROJECT_DIR/tests"
 mkdir -p "$PROJECT_DIR/reports"
 mkdir -p "$PROJECT_DIR/documentation"
 
+if [ -f "templates/security/vercel.json" ]; then
+  cp "templates/security/vercel.json" "$PROJECT_DIR/vercel.json"
+fi
+
+if [ -f ".env.example" ]; then
+  cp ".env.example" "$PROJECT_DIR/.env.example"
+fi
+
+cat > "$PROJECT_DIR/.gitignore" <<'EOF'
+.env
+.env.local
+.env.*.local
+!.env.example
+node_modules/
+.vercel/
+EOF
+
 # Placeholder files so git tracks these otherwise-empty directories.
 touch "$PROJECT_DIR/design/assets/.gitkeep"
 touch "$PROJECT_DIR/src/.gitkeep"

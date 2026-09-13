@@ -212,7 +212,18 @@ From the factory root, start a safe local preview with:
 ./factory preview factory-demo
 ```
 
-The command serves `projects/factory-demo/src` at `http://127.0.0.1:8743/` and keeps running until you press `Ctrl-C`. To use another port, add it as the final argument (for example, `./factory preview factory-demo 9000`).
+The command serves `projects/factory-demo/src` at `http://127.0.0.1:8743/` with XSS/CSP headers, path checks, and loopback-only binding. It keeps running until you press `Ctrl-C`. To use another port, add it as the final argument (for example, `./factory preview factory-demo 9000`).
+
+## Scan for secrets
+
+Before committing or during validation, scan the factory or a project for committed `.env` files and high-confidence secret patterns. The scanner reports file paths and pattern classes only; it never prints secret values.
+
+```bash
+./factory scan-secrets
+./factory scan-secrets factory-demo
+```
+
+Keep real credentials in a gitignored `.env`. Use `.env.example` for required variable names.
 
 ## Project checks
 
