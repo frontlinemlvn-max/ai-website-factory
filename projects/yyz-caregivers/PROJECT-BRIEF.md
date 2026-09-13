@@ -4,7 +4,7 @@
 
 **Project Name:** yyz-caregivers
 **Client / Brand:** YYZ Caregivers
-**Legal Business Name (owner supplied):** YYZ CAREGIVERS
+**Legal Business Name (owner supplied):** YYZ CAREGIVERS — registered Ontario sole proprietorship
 **Project Type:** Private-home personal support worker service website
 **Target Launch Date:** No production launch date — pilot only
 
@@ -167,6 +167,50 @@ Examples:
 - Caregiver/PSW qualifications and screening: awaiting confirmation
 - Insurance status: awaiting confirmation
 - Candidate logo and photographs supplied; ownership, model releases, accessibility treatment, and public-use rights remain to be confirmed
+
+### Owner-Supplied Legal and Business Identity Inputs — September 13, 2026
+
+- Legal entity: Ontario sole proprietorship, registered under the legal business name YYZ CAREGIVERS.
+- Organization structure: solo founder/operator; not a team or partnership.
+- Business category for future directory listings (e.g. Google Business Profile): Home health care service.
+- Not yet confirmed: registration/business number, whether "YYZ CAREGIVERS" or a different legal name should appear in Terms/Privacy as the contracting party, and the public-facing founder story/bio for the About page.
+
+### Owner-Supplied Services and Qualifications Inputs — September 13, 2026
+
+- Services offered: senior companionship, meal preparation, light housekeeping, mobility assistance, appointment transportation, and medication reminders. All non-clinical.
+- Services explicitly excluded / out of scope: any clinical medical care, nursing tasks, wound care, or administration of injections.
+- Insurance: active general liability coverage.
+- Screening/vetting: vulnerable sector police check, standard criminal record check, reference checks, and PSW certification/credential verification.
+- Worker scope of practice: not yet separately defined beyond the services list above; assume the service list itself defines scope unless the owner specifies otherwise.
+- Not yet confirmed: specific certifying body/program for PSW credentials, insurance provider/policy details (not required for public copy, only for internal verification), and whether all caregivers are PSW-certified or whether some services are performed by non-certified companions.
+
+### Owner-Supplied Service Area, Pricing, and Consultation Inputs — September 13, 2026
+
+- Municipalities served: Toronto (east end / Scarborough), North York, Pickering, Ajax, Whitby, and Oshawa.
+- Pricing presentation: "Contact for pricing" only; no numbers or ranges published.
+- Consultation process: an in-home assessment visit by the founder before proposing a plan.
+- Not yet confirmed: exact postal-code/travel boundaries within the above municipalities, whether the in-home assessment visit is free or has a fee, and typical turnaround time between inquiry and assessment visit.
+
+### Owner-Supplied Brand and Legal Asset Inputs — September 13, 2026
+
+- Logo: the current candidate logo does not have confirmed ownership/rights for public use and needs to be replaced with a new logo before production launch. It may continue as a temporary local-pilot placeholder in the meantime.
+- Photography: none approved yet; owner indicates photos are coming soon. Adding real photos requires a new Performance, Accessibility, and SEO baseline per those reports' existing findings (PERF-003, and equivalent notes in the Accessibility and SEO reports).
+- Privacy/incident contact: still to be decided. The owner wants a contact separate from the general inquiry address (frontline.mlvn@gmail.com), but has not yet named who or what that will be. Continue using frontline.mlvn@gmail.com as the privacy contact until a dedicated one is designated.
+- Not yet confirmed: final privacy policy and terms content (currently placeholder pilot language), and the data retention/deletion/access/incident-response process itself (separate from who the contact is).
+
+### Owner-Supplied Domain and Launch Logistics Inputs — September 13, 2026
+
+- Domain: getcarequick.ca is not yet registered by the owner. Registration and DNS setup are still outstanding, not just unverified.
+- Launch date: none set; still pilot-only pending resolution of the other open business/legal items.
+- Future hosting and third-party account ownership: to be registered under the YYZ Caregivers business entity (Ontario sole proprietorship) where the platform allows it, not the founder's personal accounts.
+- Not yet confirmed: registrar choice for the domain, and whether the sole proprietorship has the business documentation (e.g. a business number) needed to register accounts under the entity name where a platform requires it.
+
+### Owner-Supplied Privacy Policy Drafting Inputs — September 13, 2026
+
+- Retention approach: retain client information for a defined period after engagement/inquiry ends, rather than deleting immediately. Exact duration is TBD pending legal/accounting input.
+- Vendor/CRM for future inquiry processing: not yet decided.
+- Incident response approach: notify affected clients directly and assess promptly; detailed process still requires legal input.
+- A production privacy policy draft incorporating these inputs, and listing all remaining open items, has been created at `documentation/PRIVACY-POLICY-DRAFT.md`. It is a draft only and is not approved for publication; the live `src/privacy.html` pilot page remains unchanged and continues to accurately describe the current zero-collection reality.
 
 ### Intake-Form Change Request
 
