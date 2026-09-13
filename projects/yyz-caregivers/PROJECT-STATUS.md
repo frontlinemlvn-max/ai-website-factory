@@ -6,7 +6,7 @@ yyz-caregivers
 
 ## Current Stage
 
-Approved
+Deployment Ready
 
 ## Current Owner
 
@@ -26,10 +26,11 @@ Project Orchestrator
 - Accessibility
 - Final Review
 - Ready for Human Approval
+- Approved
 
 ## Active Work
 
-Prepare the approved release for the deployment-readiness gate.
+Await an explicit deployment instruction and use the configured deployment adapter.
 
 ## Blockers
 
@@ -37,7 +38,7 @@ None.
 
 ## Known Issues
 
-No known QA, exploitable security, or local-pilot performance defect remains open. Production Core Web Vitals, compression, caching, CDN behavior, and regional/mobile performance remain unverified until an approved hosted release candidate exists. Any future photograph, live form, dependency, font, or third-party integration requires a new performance baseline. Public indexing and verified operating facts remain gated, and the legacy “GTA” footer wording remains a low-priority content correction. Accessibility and Final Review remain required.
+No known QA, exploitable security, or local-pilot performance defect remains open. Production Core Web Vitals, compression, caching, CDN behavior, and regional/mobile performance remain unverified until an approved hosted release candidate exists. Any future photograph, live form, dependency, font, or third-party integration requires a new performance baseline. Public indexing remains gated. Site copy was updated September 13, 2026 with owner-confirmed business facts (services, screening, insurance, service area, consultation process), resolving the legacy "GTA" footer inconsistency. Remaining pre-deployment gaps: domain `getcarequick.ca` is not yet registered, the current logo is a temporary placeholder pending replacement, and the Privacy Policy and Terms of Service drafts (`documentation/PRIVACY-POLICY-DRAFT.md`, `documentation/TERMS-OF-SERVICE-DRAFT.md`) require legal review before publication.
 
 ## Human Decisions Required
 
@@ -55,4 +56,4 @@ Explicit human approval is required before any production deployment.
 
 ## Next Action
 
-Prepare the approved release for the deployment-readiness gate. Required output: verified deployment plan and rollback procedure. Run './factory validate-stage yyz-caregivers' when the deployment plan is complete. A separate explicit instruction is still required for production deployment.
+Await an explicit deployment instruction and use the configured deployment adapter. Required output: verified production deployment. When complete, run './factory next yyz-caregivers'.
