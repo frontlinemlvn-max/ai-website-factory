@@ -8,7 +8,7 @@ usage() {
   cat <<'EOF'
 Usage:
   ./factory doctor
-  ./factory create <project-name>
+  ./factory create <project-name> [--type <website-type>]
   ./factory intake <project-name>
   ./factory list
   ./factory status <project-name>
@@ -31,6 +31,7 @@ Usage:
 Examples:
   ./factory doctor
   ./factory create client-website
+  ./factory create client-website --type restaurant
   ./factory intake client-website
   ./factory list
   ./factory status factory-demo
@@ -97,7 +98,10 @@ case "$COMMAND" in
     exec python3 "$DOCTOR"
     ;;
   create)
-    if [ "$#" -ne 2 ]; then
+    WEBSITE_TYPE=""
+    if [ "$#" -eq 4 ] && [ "$3" = "--type" ]; then
+      WEBSITE_TYPE="$4"
+    elif [ "$#" -ne 2 ]; then
       usage >&2
       exit 1
     fi
@@ -106,7 +110,7 @@ case "$COMMAND" in
     INITIALIZER="$FACTORY_ROOT/tools/init-project.sh"
     [ -x "$INITIALIZER" ] || fail "project initializer is missing or not executable at $INITIALIZER."
 
-    exec "$INITIALIZER" "$2"
+    exec "$INITIALIZER" "$2" "$WEBSITE_TYPE"
     ;;
   intake)
     if [ "$#" -ne 2 ]; then

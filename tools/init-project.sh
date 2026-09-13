@@ -15,15 +15,30 @@ if [ ! -f "CLAUDE.md" ] || [ ! -d "agents" ] || [ ! -f "templates/PROJECT-BRIEF.
 fi
 
 if [ -z "$1" ]; then
-  echo "Usage: ./tools/init-project.sh project-name"
+  echo "Usage: ./tools/init-project.sh project-name [website-type]"
   exit 1
 fi
 
 PROJECT_NAME="$1"
+WEBSITE_TYPE="${2:-}"
 
 if ! [[ "$PROJECT_NAME" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
   echo "Error: project name must start with a letter or number and contain only letters, numbers, hyphens, and underscores."
   exit 1
+fi
+
+STARTER_FILE=""
+if [ -n "$WEBSITE_TYPE" ]; then
+  if ! [[ "$WEBSITE_TYPE" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
+    echo "Error: website type must start with a letter or number and contain only letters, numbers, hyphens, and underscores."
+    exit 1
+  fi
+  STARTER_FILE="templates/website-types/$WEBSITE_TYPE/STARTER.md"
+  if [ ! -f "$STARTER_FILE" ]; then
+    AVAILABLE=$(find templates/website-types -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort | tr '\n' ',' | sed 's/,$//' | sed 's/,/, /g')
+    echo "Error: unknown website type '$WEBSITE_TYPE'. Available types: ${AVAILABLE:-none configured}."
+    exit 1
+  fi
 fi
 
 PROJECT_DIR="projects/$PROJECT_NAME"
@@ -69,6 +84,13 @@ if [ -f "templates/PROJECT-BRIEF.md" ]; then
   cp "templates/PROJECT-BRIEF.md" "$PROJECT_DIR/PROJECT-BRIEF.md"
 else
   touch "$PROJECT_DIR/PROJECT-BRIEF.md"
+fi
+
+if [ -n "$STARTER_FILE" ]; then
+  {
+    printf '\n---\n\n'
+    cat "$STARTER_FILE"
+  } >> "$PROJECT_DIR/PROJECT-BRIEF.md"
 fi
 
 cat > "$PROJECT_DIR/PROJECT-STATUS.md" <<EOF
@@ -290,6 +312,9 @@ EOF
 echo ""
 echo "Project created successfully:"
 echo "$PROJECT_DIR"
+if [ -n "$STARTER_FILE" ]; then
+  echo "Website type starting point applied: $WEBSITE_TYPE"
+fi
 echo ""
 echo "Next step:"
 echo "Open $PROJECT_DIR/PROJECT-BRIEF.md and complete the project requirements."

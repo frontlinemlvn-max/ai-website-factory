@@ -74,6 +74,16 @@ From the factory root, create a new project scaffold with:
 
 The command validates the project name, refuses to overwrite an existing project, and creates the standard architecture, design, source, test, report, and documentation structure under `projects/`. After creation, complete the new project's `PROJECT-BRIEF.md` before beginning architecture or implementation.
 
+### Starting from a website type
+
+Optionally apply a website-type starting point:
+
+```bash
+./factory create client-website --type restaurant
+```
+
+This appends a short, evidence-based starting point (suggested pages, suggested features, common owner inputs still needed, and claims to avoid without verification) to the bottom of the new project's `PROJECT-BRIEF.md`. It never fills in or guesses actual answers — the guided intake or manual completion still does that. Available types live as folders under `templates/website-types/` (currently `restaurant`, `portfolio`, and `contractor`); add a new one by creating `templates/website-types/<name>/STARTER.md` — no code change is required. An unrecognized `--type` value fails clearly and creates nothing, listing the types that do exist.
+
 ## Complete guided project intake
 
 While a project is still in the `Intake` stage, complete its brief through the guided questionnaire:

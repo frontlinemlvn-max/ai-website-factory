@@ -947,6 +947,37 @@ def run_suite(suite):
 
     suite.case("secret scan reports a planted key without printing it", secret_scan_detects_key_case)
 
+    def website_type_case():
+        typed_project = "typed-project"
+        result = suite.run("create", typed_project, "--type", "restaurant")
+        suite.expect(result, 0, "Project created successfully", "Website type starting point applied: restaurant")
+        brief = (suite.root / "projects" / typed_project / "PROJECT-BRIEF.md").read_text(encoding="utf-8")
+        require(
+            "Website Type Starting Point — Restaurant" in brief,
+            "website-type starter content was not appended to the brief",
+        )
+        require(
+            "Reservation request" in brief,
+            "restaurant starter's suggested features were not appended to the brief",
+        )
+        after_validate = suite.run("validate-brief", typed_project)
+        require(
+            "Traceback" not in after_validate.output,
+            "validate-brief crashed on a brief with appended website-type content",
+        )
+
+    suite.case("create applies a website-type starting point", website_type_case)
+
+    def invalid_website_type_case():
+        result = suite.run("create", "typed-project-invalid", "--type", "not-a-real-type")
+        suite.expect(result, 1, "unknown website type", "restaurant")
+        require(
+            not (suite.root / "projects" / "typed-project-invalid").exists(),
+            "an invalid website type still created a project directory",
+        )
+
+    suite.case("create rejects an unknown website type", invalid_website_type_case)
+
 
 def main():
     real_projects = FACTORY_ROOT / "projects"
