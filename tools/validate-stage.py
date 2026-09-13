@@ -7,35 +7,10 @@ import re
 import subprocess
 import sys
 
+from factory_stages import ALIASES, SUPPORTED_STAGES
+
 
 FACTORY_ROOT = Path(__file__).resolve().parent.parent
-
-ALIASES = {
-    "SEO & Content": "SEO",
-    "Final QA": "Final Review",
-    "Human Approval": "Ready for Human Approval",
-    "Complete": "Deployed",
-}
-
-SUPPORTED_STAGES = {
-    "Intake",
-    "Architecture",
-    "Design",
-    "Development",
-    "Backend",
-    "QA",
-    "Debugging",
-    "SEO",
-    "Security",
-    "Performance",
-    "Accessibility",
-    "Final Review",
-    "Ready for Human Approval",
-    "Approved",
-    "Deployment Ready",
-    "Deployed",
-    "Blocked",
-}
 
 PLACEHOLDER_PATTERNS = (
     re.compile(r"\bto be completed(?: by [^.]+)?\.?$", re.IGNORECASE),

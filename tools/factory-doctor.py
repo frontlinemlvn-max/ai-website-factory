@@ -31,6 +31,7 @@ REQUIRED_FILES = (
     "tools/check-project.py",
     "tools/deployment-adapter.py",
     "tools/factory-doctor.py",
+    "tools/factory_stages.py",
     "tools/init-project.sh",
     "tools/project-intake.py",
     "tools/preview-server.py",
