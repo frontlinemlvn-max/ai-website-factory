@@ -4,7 +4,13 @@ Project: yyz-caregivers
 
 ## Deployment Platform
 
-Vercel, per `PROJECT-BRIEF.md` ("Hosting / Platform: Local preview; Vercel only after explicit human approval"). No Vercel project has been created or linked yet — this section documents the intended target, not a live link. Once a project is linked, its `orgId`/`projectId` (from `.vercel/project.json`) will be recorded here so the factory's deployment adapter can verify the link matches this document before any deploy.
+Vercel, per `PROJECT-BRIEF.md` ("Hosting / Platform: Local preview; Vercel only after explicit human approval").
+
+Linked for testing purposes on September 13, 2026, at the owner's explicit instruction:
+
+- Vercel project: `brandingbadge/yyz-caregivers` (`prj_6ms9HgRebMVhi3uQJWwShhciSYZh`)
+- Vercel organization: `team_t0lN3unojEHiR0T7c5pQYMzP`
+- No custom domain is attached. Deployment uses Vercel's auto-generated `*.vercel.app` URL, not `getcarequick.ca` (not yet registered).
 
 ## Build Process
 
@@ -33,6 +39,18 @@ Once prerequisites are met, the procedure is:
 3. `./factory deploy yyz-caregivers --confirm DEPLOY` — performs the live deployment only on this exact confirmation string, per a separate explicit deployment instruction from the owner (see `reports/LAUNCH-READINESS.md`, Deployment Plan). This step is not authorized by the Approved-stage decision alone.
 
 Indexing remains blocked (`noindex, nofollow`, `robots.txt` disallow-all) until the owner separately approves public indexing, per `reports/SEO-REPORT.md` (SEO-001).
+
+## Test Deployment Record — September 13, 2026
+
+A test deployment was performed at the owner's explicit instruction, for testing purposes only — not a production launch:
+
+- URL: `https://yyz-caregivers-9dst9pgfd-brandingbadge.vercel.app`
+- Status: Vercel reports the deployment as Ready.
+- Access: Protected by Vercel's default deployment authentication (SSO wall). Only the owner's Vercel account (`frontlinemlvn-2804`) can view it; the owner chose to keep this protection on rather than make the test URL publicly viewable.
+- The factory's own automated post-deployment verification (`tools/deployment-adapter.py`) could not confirm this deployment, because it expects a plain HTTP 200 response and instead received a redirect to Vercel's login wall. This is expected given the protection setting above, not a defect in the site. The project stage correctly remains `Deployment Ready`, not `Deployed`, since the factory did not record this as a verified production release.
+- This test URL uses Vercel's auto-generated domain, not `getcarequick.ca`. It carries the current placeholder logo and pilot-bar disclosures, which is acceptable for a protected test but not for public production.
+
+This test deployment does not constitute the production launch. A real production release still requires: domain registration, logo replacement, legal review of the Privacy Policy and Terms of Service drafts, a decision on deployment protection for the public site, and a separate explicit production-deployment instruction from the owner.
 
 ## Post-Deployment Verification
 
