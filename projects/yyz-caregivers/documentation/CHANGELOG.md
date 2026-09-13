@@ -2,6 +2,17 @@
 
 All meaningful changes to yyz-caregivers should be documented here.
 
+## 2026-09-13 — Human approval, business fact confirmation, site copy pass, and test deployment
+
+- Recorded the owner's explicit APPROVED decision via `./factory approve`, based on `reports/LAUNCH-READINESS.md`; advanced Ready for Human Approval → Approved → Deployment Ready.
+- Worked through the business/legal checklist with the owner across five categories (legal identity, services/qualifications, service area/contact, brand/legal assets, domain/launch logistics) and recorded every confirmed fact and remaining gap in `PROJECT-BRIEF.md`.
+- Drafted `documentation/PRIVACY-POLICY-DRAFT.md` and `documentation/TERMS-OF-SERVICE-DRAFT.md` for a future live service, each clearly marked as drafts requiring legal review; deliberately left liability/indemnification language undrafted for a lawyer to write.
+- Updated site copy across all eight pages (`src/*.html`) to replace provisional/placeholder language with the owner-confirmed facts: services and exclusions, screening and insurance, expanded service area (adds North York, ~15-minute travel boundary, case-by-case edge areas), free in-home assessment process, and hours. Standardized the "GTA" footer inconsistency to "East Toronto, North York, and Durham Region." No functional change — forms remain non-sending previews with no `action` attribute. Verified via `./factory check`, the frontend smoke suite, and all 50 factory regression tests.
+- Filled in `documentation/DEPLOYMENT.md` with a real Vercel-based deployment plan, prerequisites, post-deployment verification checklist, and rollback procedure; passed `./factory validate-stage`.
+- Linked a new Vercel project (`brandingbadge/yyz-caregivers`) and performed a protected test deployment at the owner's explicit instruction, for testing purposes only. The deployment succeeded on Vercel's side but sits behind Vercel's default authentication wall, which the owner chose to keep enabled; the factory's automated verification correctly could not confirm it as a public production release, so the project stage correctly remains Deployment Ready rather than Deployed. Removed an unnecessary auto-generated `.env.local` credential file before deployment and added `src/.gitignore` for `.vercel`/`.env*`.
+- Remaining gaps, none of which are implementation defects: `getcarequick.ca` is not registered, the current logo is a temporary placeholder pending replacement, and both legal drafts need a lawyer's review before publication. Two-factor authentication is not currently enabled on the inquiry email account — recommended before it handles real client information.
+- No production deployment, public indexing change, or final legal publication occurred.
+
 ## 2026-09-12 — Accessibility follow-up: A11Y-004 fix
 
 - Found and fixed A11Y-004: the Support Needs Assessment's "topics" checkbox group had `required` misapplied to only the "Personal routines" checkbox, mismatching the fieldset's "choose at least one" legend and misleading assistive technology.
