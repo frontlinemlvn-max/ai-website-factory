@@ -227,17 +227,38 @@ The command serves `projects/factory-demo/src` at `http://127.0.0.1:8743/` with 
 ## Customer frontend prototype
 
 The Claude Design customer-facing prototype is isolated in `frontend/`; it does not
-replace the factory CLI or any generated project. Preview it locally with:
+replace the factory CLI. Two ways to run it:
+
+**Static only** (no project creation, everything simulated):
 
 ```bash
 cd /Users/brandingbadge/Documents/ai-website-factory/frontend
 python3 -m http.server 5173 --bind 127.0.0.1
 ```
 
-Open `http://127.0.0.1:5173/` for the application or
-`http://127.0.0.1:5173/landing.html` for the marketing page. See
-`frontend/README.md` for the export technology, external runtime dependencies, and
-the boundary between simulated prototype actions and future backend integration.
+**With the local backend** (creates and reads real factory projects):
+
+```bash
+./factory frontend
+```
+
+Serves `frontend/` and a small JSON API from the same origin and port
+(default 5173; pass a port to use another one, e.g. `./factory frontend 9000`):
+
+- `GET /api/health`
+- `POST /api/projects` — validates the submitted name, derives a project slug, and
+  calls the existing `tools/init-project.sh` to create it (no scaffolding logic is
+  duplicated), then appends the submitted intake fields to the new
+  `PROJECT-BRIEF.md` as an unverified summary for human review.
+- `GET /api/projects/<slug>/status` — reads the project's `PROJECT-STATUS.md`.
+
+When run this way, finishing the frontend's onboarding wizard creates a real
+project under `projects/` and shows its live stage in a small "Factory record"
+readout. If the backend isn't running (the static-only option above), the page
+fails silently and keeps its fully simulated behavior — no functionality is lost
+either way. **Payments, domain purchase, publishing, deployment, and downloads
+remain explicitly simulated** in both modes; only project creation and status are
+real. See `frontend/README.md` for the full boundary and the export technology.
 
 ## Scan for secrets
 

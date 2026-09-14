@@ -33,6 +33,7 @@ REQUIRED_FILES = (
     "tools/factory-doctor.py",
     "tools/factory_stages.py",
     "tools/init-project.sh",
+    "tools/local_backend.py",
     "tools/project-intake.py",
     "tools/preview-server.py",
     "tools/project-status.py",

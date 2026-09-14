@@ -253,6 +253,12 @@
             </div>
           </sc-for>
         </div>
+        <sc-if value="{{ hasBackend }}">
+          <div style="display: flex; flex-direction: column; gap: 3px; font-family: ui-monospace, monospace; font-size: 11.5px; margin-top: 4px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--color-text) 14%, transparent);">
+            <span style="color: color-mix(in srgb, var(--color-text) 55%, transparent); letter-spacing: 0.06em; text-transform: uppercase; font-size: 10px;">Factory record</span>
+            <span style="color: color-mix(in srgb, var(--color-text) 72%, transparent);">{{ backendSummary }}</span>
+          </div>
+        </sc-if>
       </div>
     </div>
 
@@ -477,6 +483,9 @@
           <div style="display: flex; gap: 10px;"><span style="color: color-mix(in srgb, var(--color-text) 55%, transparent); width: 92px; flex: none;">Lighthouse</span><span>99 / 100 / 100</span></div>
           <div style="display: flex; gap: 10px;"><span style="color: color-mix(in srgb, var(--color-text) 55%, transparent); width: 92px; flex: none;">Theme</span><span style="text-transform: capitalize;">{{ themeName }} · fitted to your trade</span></div>
           <div style="display: flex; gap: 10px;"><span style="color: color-mix(in srgb, var(--color-text) 55%, transparent); width: 92px; flex: none;">Source</span><span>HTML + CSS, exportable</span></div>
+          <sc-if value="{{ hasBackend }}">
+            <div style="display: flex; gap: 10px;"><span style="color: color-mix(in srgb, var(--color-text) 55%, transparent); width: 92px; flex: none;">Factory record</span><span style="font-family: ui-monospace, monospace; font-size: 12px;">{{ backendSummary }}</span></div>
+          </sc-if>
         </div>
       </div>
 
@@ -662,7 +671,9 @@ class Component extends DCLogic {
     brief: "A two-person bicycle repair shop in Lisbon. Tune-ups, hand-built wheels and restorations of older frames.",
     who: { "Local walk-ins": true, "Repeat customers": true, "Other businesses": false, "People browsing online": false },
     action: "Book a slot",
-    extras: { "Price list": true, "Map and hours": true, "Photo gallery": false, "Newsletter": false, "Online shop": false }
+    extras: { "Price list": true, "Map and hours": true, "Photo gallery": false, "Newsletter": false, "Online shop": false },
+    backend: null,
+    backendError: null
   };
 
   actionList = ["Book a slot", "Call us", "Buy online", "Join the newsletter"];
@@ -692,11 +703,53 @@ class Component extends DCLogic {
     if (!last) { this.setState(s => ({ at: s.at + 1 })); return; }
     this.setState({ finished: true });
     this.generate();
+    this.createBackendProject();
     clearTimeout(this.t);
     this.t = setTimeout(() => this.setState({ running: true }), this.props.handoffSpeed ?? 1400);
   };
 
   rewrite = () => this.generate();
+
+  // Records this site with the local factory backend, when one is running
+  // (./factory frontend). Payments, domain purchase, publishing, deployment,
+  // and downloads remain simulated regardless of whether this succeeds.
+  createBackendProject = async () => {
+    const s = this.state;
+    const who = this.whoList.filter(w => s.who[w]);
+    const extras = this.extraList.filter(x => s.extras[x]);
+
+    try {
+      const response = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: s.name, brief: s.brief, who, action: s.action, extras })
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = (data && data.error) || ("request failed with status " + response.status);
+        this.setState({ backendError: message });
+        return;
+      }
+      this.setState({ backend: { slug: data.slug, statusUrl: data.statusUrl } });
+      this.refreshBackendStatus(data.statusUrl);
+    } catch (error) {
+      // No backend running (e.g. served via ./factory preview instead of
+      // ./factory frontend), or a network error. The simulated experience
+      // continues unaffected.
+      this.setState({ backendError: "not connected to a local factory backend" });
+    }
+  };
+
+  refreshBackendStatus = async (statusUrl) => {
+    try {
+      const response = await fetch(statusUrl);
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data) return;
+      this.setState(st => ({ backend: { ...st.backend, ...data } }));
+    } catch (error) {
+      // Leave the last known backend state in place.
+    }
+  };
 
   generate = async () => {
     const s = this.state;
@@ -1017,6 +1070,12 @@ class Component extends DCLogic {
       question: cur.question,
       questionNote: cur.note,
       addsNote: cur.adds,
+
+      hasBackend: !!(s.backend && s.backend.slug),
+      backendSummary: s.backend
+        ? "projects/" + s.backend.slug + " · " + (s.backend.stage || "Intake") +
+          (s.backend.nextAction ? " · " + s.backend.nextAction : "")
+        : "",
 
       atDomain: cur.key === "domain",
       atName: cur.key === "name",

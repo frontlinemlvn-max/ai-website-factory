@@ -24,6 +24,7 @@ Usage:
   ./factory rollback <project-name> <deployment-id-or-url> --dry-run
   ./factory rollback <project-name> <deployment-id-or-url> --confirm ROLLBACK
   ./factory preview <project-name> [port]
+  ./factory frontend [port]
   ./factory scan-secrets [project-name]
   ./factory check <project-name>
   ./factory test
@@ -48,6 +49,8 @@ Examples:
   ./factory rollback client-website dpl_previousDeployment --confirm ROLLBACK
   ./factory preview factory-demo
   ./factory preview factory-demo 9000
+  ./factory frontend
+  ./factory frontend 5000
   ./factory scan-secrets
   ./factory scan-secrets factory-demo
   ./factory check factory-demo
@@ -290,6 +293,36 @@ case "$COMMAND" in
     printf 'Press Ctrl-C to stop.\n'
 
     exec python3 "$PREVIEW_SERVER" --port "$PORT" --bind 127.0.0.1 --directory "$SITE_DIR"
+    ;;
+  frontend)
+    if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+      usage >&2
+      exit 1
+    fi
+
+    FRONTEND_DIR="$FACTORY_ROOT/frontend"
+    [ -d "$FRONTEND_DIR" ] || fail "frontend directory is missing at $FRONTEND_DIR."
+
+    PORT="${2:-5173}"
+
+    case "$PORT" in
+      ''|*[!0-9]*) fail "port must be a number from 1 to 65535." ;;
+    esac
+
+    if [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
+      fail "port must be a number from 1 to 65535."
+    fi
+
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to run the local backend."
+
+    BACKEND_SERVER="$FACTORY_ROOT/tools/local_backend.py"
+    [ -f "$BACKEND_SERVER" ] || fail "local backend is missing at $BACKEND_SERVER."
+
+    printf 'Serving the frontend prototype and its local backend at http://127.0.0.1:%s/\n' "$PORT"
+    printf 'Health check: http://127.0.0.1:%s/api/health\n' "$PORT"
+    printf 'Press Ctrl-C to stop.\n'
+
+    exec python3 "$BACKEND_SERVER" --port "$PORT" --bind 127.0.0.1 --frontend-dir "$FRONTEND_DIR" --projects-dir "$FACTORY_ROOT/projects"
     ;;
   scan-secrets)
     if [ "$#" -gt 2 ]; then

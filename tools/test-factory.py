@@ -16,8 +16,8 @@ import sys
 import tempfile
 import time
 from types import SimpleNamespace
-from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 
 FACTORY_ROOT = Path(__file__).resolve().parent.parent
@@ -196,7 +196,7 @@ def write_text(path, content, executable=False):
 
 def copy_factory(destination):
     ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
-    for name in ("agents", "documentation", "templates", "tools", "workflows"):
+    for name in ("agents", "documentation", "templates", "tools", "workflows", "frontend"):
         source = FACTORY_ROOT / name
         shutil.copytree(source, destination / name, symlinks=True, ignore=ignore)
     for name in ("factory", "CLAUDE.md", "README.md", ".env.example"):
@@ -977,6 +977,108 @@ def run_suite(suite):
         )
 
     suite.case("create rejects an unknown website type", invalid_website_type_case)
+
+    def local_backend_case():
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+        base = f"http://127.0.0.1:{port}"
+
+        process = subprocess.Popen(
+            [str(suite.factory), "frontend", str(port)],
+            cwd=suite.root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=suite.environment,
+        )
+
+        def request(method, path, payload=None):
+            data = json.dumps(payload).encode("utf-8") if payload is not None else None
+            req = Request(base + path, data=data, method=method)
+            if data is not None:
+                req.add_header("Content-Type", "application/json")
+            try:
+                with urlopen(req, timeout=2) as response:
+                    return response.status, json.loads(response.read().decode("utf-8"))
+            except HTTPError as error:
+                return error.code, json.loads(error.read().decode("utf-8"))
+
+        try:
+            deadline = time.monotonic() + 8
+            ready = False
+            while time.monotonic() < deadline:
+                if process.poll() is not None:
+                    break
+                try:
+                    status, body = request("GET", "/api/health")
+                    ready = status == 200 and body.get("status") == "ok"
+                    if ready:
+                        break
+                except (URLError, TimeoutError, OSError):
+                    time.sleep(0.05)
+
+            if not ready:
+                output = process.communicate(timeout=3)[0] if process.poll() is None else ""
+                raise TestFailure(f"local backend did not become healthy\n{output[-1200:]}")
+
+            with urlopen(base + "/", timeout=2) as response:
+                index_status = response.status
+                index_body = response.read().decode("utf-8")
+            require(index_status == 200, "backend did not serve the frontend index page")
+            require("Website Factory App" in index_body, "backend served unexpected content at /")
+
+            status, body = request(
+                "POST",
+                "/api/projects",
+                {
+                    "name": "Backend Test Cafe",
+                    "brief": "A test business created by the isolated suite.",
+                    "who": ["Local walk-ins"],
+                    "action": "Book a slot",
+                    "extras": ["Price list"],
+                },
+            )
+            require(status == 201, f"project creation failed: {status} {body}")
+            require(body.get("slug") == "backend-test-cafe", f"unexpected slug: {body}")
+
+            brief_file = suite.root / "projects" / "backend-test-cafe" / "PROJECT-BRIEF.md"
+            require(brief_file.is_file(), "backend did not create a real project via init-project.sh")
+            brief_text = brief_file.read_text(encoding="utf-8")
+            require(
+                "Customer-Submitted Intake (unverified)" in brief_text and "Backend Test Cafe" in brief_text,
+                "backend did not append the customer intake summary to the brief",
+            )
+
+            status, body = request("GET", "/api/projects/backend-test-cafe/status")
+            require(status == 200, f"status lookup failed: {status} {body}")
+            require(body.get("stage") == "Intake", f"unexpected stage: {body}")
+
+            status, body = request("POST", "/api/projects", {"name": "Backend Test Cafe"})
+            require(status == 409, f"duplicate project creation should be rejected: {status} {body}")
+
+            status, body = request("GET", "/api/projects/does-not-exist/status")
+            require(status == 404, f"missing project status should 404: {status} {body}")
+
+            status, body = request("GET", "/api/projects/..%2f..%2fetc/status")
+            require(status == 400, f"path-traversal slug should be rejected: {status} {body}")
+
+            status, body = request("POST", "/api/projects", {"name": "!!!"})
+            require(status == 400, f"unslugifiable name should be rejected: {status} {body}")
+
+            status, body = request("POST", "/api/projects", {})
+            require(status == 400, f"missing name should be rejected: {status} {body}")
+        finally:
+            if process.poll() is None:
+                process.terminate()
+            try:
+                process.communicate(timeout=3)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.communicate(timeout=3)
+            shutil.rmtree(suite.root / "projects" / "backend-test-cafe", ignore_errors=True)
+
+    suite.case("local backend serves the frontend and a validated project API", local_backend_case)
 
 
 def main():
