@@ -30,9 +30,12 @@ the Anthropic API, and never echoes the API key back to the client or logs.
 """
 
 from collections import deque
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from string import Template
 import argparse
+import html
 import json
 import os
 import posixpath
@@ -297,6 +300,91 @@ def call_anthropic(anthropic_key, prompt):
     }
 
 
+SITE_DRAFT_TEMPLATE = Path(__file__).resolve().parent.parent / "templates" / "site-draft" / "index.html.tmpl"
+
+# Matches yyz-caregivers' verified-accessible pilot palette (see
+# projects/yyz-caregivers/design/UI-UX-SPEC.md) as a safe fallback whenever
+# the AI response omits a palette or supplies something unusable.
+DEFAULT_PALETTE = {
+    "paper": "#FFFCF7",
+    "ink": "#18252D",
+    "accent": "#0B675F",
+    "band": "#DDF2EE",
+}
+HEX_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def safe_hex_color(value, fallback):
+    if isinstance(value, str) and HEX_COLOR_PATTERN.match(value.strip()):
+        return value.strip()
+    return fallback
+
+
+def render_service_cards(services):
+    if not services:
+        return ""
+    cards = []
+    for service in services:
+        cards.append(
+            "<article class=\"service-card\">"
+            f"<h3>{html.escape(service.get('title', ''))}</h3>"
+            f"<p>{html.escape(service.get('body', ''))}</p>"
+            f"<p class=\"price\">{html.escape(service.get('price', ''))}</p>"
+            "</article>"
+        )
+    return (
+        '<section class="services"><div class="container">'
+        "<h2>What we offer</h2>"
+        f'<div class="service-grid">{"".join(cards)}</div>'
+        "</div></section>"
+    )
+
+
+def render_planned_pages(nav):
+    labels = [item.get("label", "") for item in nav if isinstance(item, dict) and item.get("label")]
+    if not labels:
+        return "<span>Home (this page)</span>"
+    return "".join(f"<span>{html.escape(label)}</span>" for label in labels)
+
+
+def render_draft_site(business_name, copy_data):
+    """Render a single-page static HTML draft from generated copy. Every
+    interpolated value is HTML-escaped — this content originates from an AI
+    response (or a client-submitted fallback draft) and must never be
+    trusted as safe markup."""
+    if not SITE_DRAFT_TEMPLATE.is_file():
+        raise BackendError(500, "the site draft template is missing")
+
+    palette_in = copy_data.get("palette") or {}
+    palette = {
+        "paper": safe_hex_color(palette_in.get("paper"), DEFAULT_PALETTE["paper"]),
+        "ink": safe_hex_color(palette_in.get("ink"), DEFAULT_PALETTE["ink"]),
+        "accent": safe_hex_color(palette_in.get("accent"), DEFAULT_PALETTE["accent"]),
+        "band": safe_hex_color(palette_in.get("band"), DEFAULT_PALETTE["band"]),
+    }
+
+    context = {
+        "business_name": html.escape(business_name or "Untitled business"),
+        "meta_description": html.escape((copy_data.get("body") or "")[:160]),
+        "color_paper": palette["paper"],
+        "color_ink": palette["ink"],
+        "color_accent": palette["accent"],
+        "color_band": palette["band"],
+        "kicker": html.escape(copy_data.get("kicker") or ""),
+        "title": html.escape(copy_data.get("title") or business_name or "Welcome"),
+        "body": html.escape(copy_data.get("body") or ""),
+        "cta_label": html.escape(copy_data.get("ctaLabel") or "Get in touch"),
+        "services_section": render_service_cards(copy_data.get("services") or []),
+        "close_title": html.escape(copy_data.get("closeTitle") or "Ready when you are"),
+        "close_note": html.escape(copy_data.get("closeNote") or ""),
+        "planned_pages_html": render_planned_pages(copy_data.get("nav") or []),
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+    }
+
+    template_text = SITE_DRAFT_TEMPLATE.read_text(encoding="utf-8")
+    return Template(template_text).safe_substitute(context)
+
+
 class BackendHandler(BaseHTTPRequestHandler):
     limiter = SlidingWindowLimiter(RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_SECONDS)
     generate_limiter = SlidingWindowLimiter(GENERATE_RATE_LIMIT_MAX_REQUESTS, GENERATE_RATE_LIMIT_WINDOW_SECONDS)
@@ -409,6 +497,9 @@ class BackendHandler(BaseHTTPRequestHandler):
             who = clean_list(data.get("who"), MAX_LIST_ITEMS, 200)
             extras = clean_list(data.get("extras"), MAX_LIST_ITEMS, 200)
             website_type = clean_text(data.get("websiteType"), 60)
+            copy_data = data.get("copy")
+            if copy_data is not None and not isinstance(copy_data, dict):
+                raise BackendError(400, "'copy' must be a JSON object if provided")
 
             slug = slugify(name)
             if not slug or not SLUG_PATTERN.match(slug):
@@ -438,12 +529,22 @@ class BackendHandler(BaseHTTPRequestHandler):
 
             self._append_intake_summary(project_dir, name, brief, who, action, extras)
 
+            draft_site_generated = False
+            if copy_data:
+                site_html = render_draft_site(name, copy_data)
+                src_dir = project_dir / "src"
+                src_dir.mkdir(parents=True, exist_ok=True)
+                (src_dir / "index.html").write_text(site_html, encoding="utf-8")
+                self._append_draft_site_note(project_dir)
+                draft_site_generated = True
+
             self._send_json(
                 201,
                 {
                     "slug": slug,
                     "status": "created",
                     "statusUrl": f"/api/projects/{slug}/status",
+                    "draftSiteGenerated": draft_site_generated,
                 },
             )
         except BackendError as error:
@@ -477,6 +578,23 @@ class BackendHandler(BaseHTTPRequestHandler):
         ]
         with brief_file.open("a", encoding="utf-8") as handle:
             handle.write("\n".join(lines))
+
+    @staticmethod
+    def _append_draft_site_note(project_dir):
+        brief_file = project_dir / "PROJECT-BRIEF.md"
+        if not brief_file.is_file():
+            return
+        note = (
+            "\n\n## Auto-Generated Draft Site (unreviewed)\n\n"
+            "src/index.html was generated automatically from AI-drafted copy and a generic "
+            "template. It is a single-page starting point only: no business fact, service "
+            "claim, or navigation destination in it has been verified, and no other pages "
+            "exist yet. Treat it exactly like any other Intake-stage output — it still needs "
+            "the full factory pipeline (Architecture, Design, Development, QA, and every "
+            "specialist review) before any of it is trustworthy or launch-ready.\n"
+        )
+        with brief_file.open("a", encoding="utf-8") as handle:
+            handle.write(note)
 
     def _handle_generate(self):
         client = self.client_address[0] if self.client_address else "unknown"

@@ -85,16 +85,34 @@ Run with `./factory frontend` (see `tools/local_backend.py`) and these become re
   than fabricating output when the key is missing. Limited to 5 requests/minute per
   IP — tighter than the other routes' 180/minute, since each call costs real money.
 
-`index.html` calls `/api/projects` once the onboarding wizard finishes and shows the
-result in a small "Factory record" line — but only when a response actually comes
-back; any failure (backend not running, network error, generation not configured) is
+`index.html` resolves copy first (`window.claude.complete`, then `/api/generate`, then
+a local deterministic draft), then calls `POST /api/projects` with that copy attached.
+When real copy was obtained, the backend also renders it into an actual
+`src/index.html` for the new project — a single-page static draft (see
+`templates/site-draft/index.html.tmpl`), using the AI's suggested palette (with a
+verified-accessible fallback if it's missing or invalid) and every field
+HTML-escaped, since this is untrusted AI-generated content being written into a real
+file that gets served in a browser. The generated page carries a visible "AI-drafted
+pilot, unverified" banner and lists its `nav` suggestions as "planned pages, not yet
+built" rather than fabricating links to pages that don't exist — the project's
+`PROJECT-BRIEF.md` gets a matching note that it still needs the full factory pipeline
+(Architecture, Design, Development, QA, every specialist review) before any of it is
+trustworthy. If copy generation fails, the project is still created — just without an
+auto-generated site — rather than ever writing fabricated content to disk. The
+"Factory record" line shows whether a draft site was generated. Any failure anywhere
+in this chain (backend not running, network error, generation not configured) is
 caught silently and the fully simulated/local-draft experience continues exactly as
 before. Payments, domain purchase, publishing, deployment, and downloads are
 unaffected either way — they stay simulated regardless of which run option is used.
 
 ## Further integration boundary
 
-Keep this prototype as the presentation layer. Real AI copy generation now runs
-server-side (see above) using this same pattern; if payments or deployment are added
-later, extend it the same way — a server-side API between the browser and any
-provider credentials, never provider keys or factory logic moved into browser code.
+Keep this prototype as the presentation layer. Real AI copy generation and a real
+single-page draft site now run server-side (see above) using this same pattern; if
+payments, multi-page generation, or deployment are added later, extend it the same
+way — a server-side API between the browser and any provider credentials, never
+provider keys or factory logic moved into browser code. A generated draft is
+intentionally not a finished, launchable site: it still needs to go through the same
+Architecture → Design → Development → QA → specialist-review pipeline as any other
+factory project (see `yyz-caregivers` for what that looks like end to end) before any
+of its claims can be trusted or it can be approved for launch.

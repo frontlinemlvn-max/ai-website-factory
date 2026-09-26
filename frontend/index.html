@@ -702,8 +702,11 @@ class Component extends DCLogic {
     const last = this.state.at >= this.stationDefs.length - 1;
     if (!last) { this.setState(s => ({ at: s.at + 1 })); return; }
     this.setState({ finished: true });
-    this.generate();
-    this.createBackendProject();
+    // Resolve copy first (real AI or local draft fallback), then create the
+    // backend project with that copy attached so a real draft site can be
+    // rendered in the same call. If generation fully fails, the project is
+    // still created — just without an auto-generated src/index.html.
+    this.generate().then((copy) => this.createBackendProject(copy));
     clearTimeout(this.t);
     this.t = setTimeout(() => this.setState({ running: true }), this.props.handoffSpeed ?? 1400);
   };
@@ -713,7 +716,7 @@ class Component extends DCLogic {
   // Records this site with the local factory backend, when one is running
   // (./factory frontend). Payments, domain purchase, publishing, deployment,
   // and downloads remain simulated regardless of whether this succeeds.
-  createBackendProject = async () => {
+  createBackendProject = async (copy) => {
     const s = this.state;
     const who = this.whoList.filter(w => s.who[w]);
     const extras = this.extraList.filter(x => s.extras[x]);
@@ -722,7 +725,7 @@ class Component extends DCLogic {
       const response = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: s.name, brief: s.brief, who, action: s.action, extras })
+        body: JSON.stringify({ name: s.name, brief: s.brief, who, action: s.action, extras, copy: copy || undefined })
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) {
@@ -730,7 +733,9 @@ class Component extends DCLogic {
         this.setState({ backendError: message });
         return;
       }
-      this.setState({ backend: { slug: data.slug, statusUrl: data.statusUrl } });
+      this.setState({
+        backend: { slug: data.slug, statusUrl: data.statusUrl, draftSiteGenerated: !!data.draftSiteGenerated }
+      });
       this.refreshBackendStatus(data.statusUrl);
     } catch (error) {
       // No backend running (e.g. served via ./factory preview instead of
@@ -780,22 +785,21 @@ class Component extends DCLogic {
       "The palette must suit this industry (a tax firm is not a bakery): paper and band stay very light, ink stays dark enough to read at 4.5:1, accent carries the brand.";
 
     const applyGenerated = (data) => {
-      if (run !== this.genRun) return;
+      if (run !== this.genRun) return null;
       const svc = Array.isArray(data.services) ? data.services.filter(x => x && x.title).slice(0, 3) : [];
-      this.setState({
-        writing: false,
-        gen: {
-          kicker: data.kicker || "",
-          title: data.title || "",
-          body: data.body || "",
-          ctaLabel: data.ctaLabel || "",
-          nav: (Array.isArray(data.nav) ? data.nav : []).slice(0, 3).map(l => ({ label: String(l) })),
-          services: svc.map(x => ({ title: x.title, body: x.body || "", price: x.price || "" })),
-          closeTitle: data.closeTitle || "",
-          closeNote: data.closeNote || "",
-          palette: data.palette || null
-        }
-      });
+      const normalized = {
+        kicker: data.kicker || "",
+        title: data.title || "",
+        body: data.body || "",
+        ctaLabel: data.ctaLabel || "",
+        nav: (Array.isArray(data.nav) ? data.nav : []).slice(0, 3).map(l => ({ label: String(l) })),
+        services: svc.map(x => ({ title: x.title, body: x.body || "", price: x.price || "" })),
+        closeTitle: data.closeTitle || "",
+        closeNote: data.closeNote || "",
+        palette: data.palette || null
+      };
+      this.setState({ writing: false, gen: normalized });
+      return normalized;
     };
 
     // Prefer the Claude Design host's own copywriter when this page is open
@@ -809,11 +813,10 @@ class Component extends DCLogic {
         system: "You are a copywriter. You return only valid JSON matching the requested shape.",
         messages: [{ role: "user", content: prompt }]
       });
-      if (run !== this.genRun) return;
+      if (run !== this.genRun) return null;
       const start = raw.indexOf("{");
       const end = raw.lastIndexOf("}");
-      applyGenerated(JSON.parse(raw.slice(start, end + 1)));
-      return;
+      return applyGenerated(JSON.parse(raw.slice(start, end + 1)));
     } catch (e) {
       // Fall through to the local backend.
     }
@@ -829,14 +832,15 @@ class Component extends DCLogic {
         body: JSON.stringify({ name: s.name, brief: s.brief, who, action: s.action, extras })
       });
       const data = await response.json().catch(() => null);
-      if (run !== this.genRun) return;
+      if (run !== this.genRun) return null;
       if (!response.ok || !data) {
         throw new Error((data && data.error) || ("request failed with status " + response.status));
       }
-      applyGenerated(data);
+      return applyGenerated(data);
     } catch (e) {
-      if (run !== this.genRun) return;
+      if (run !== this.genRun) return null;
       this.setState({ writing: false, genError: "Could not reach the copywriter. Showing a draft from your brief." });
+      return null;
     }
   };
 
@@ -1103,6 +1107,7 @@ class Component extends DCLogic {
       hasBackend: !!(s.backend && s.backend.slug),
       backendSummary: s.backend
         ? "projects/" + s.backend.slug + " · " + (s.backend.stage || "Intake") +
+          (s.backend.draftSiteGenerated ? " · draft site generated (unreviewed)" : "") +
           (s.backend.nextAction ? " · " + s.backend.nextAction : "")
         : "",
 

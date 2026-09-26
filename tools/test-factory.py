@@ -1093,6 +1093,44 @@ def run_suite(suite):
                 require(status == 503, "expected requests within the limit to still reach the fail-closed check")
             status, body = request("POST", "/api/generate", {"name": "x"})
             require(status == 429, f"generate should apply its own strict rate limit: {status} {body}")
+
+            # Providing 'copy' directly (without needing a real Anthropic call)
+            # exercises the draft-site renderer, including HTML-escaping of a
+            # deliberately malicious payload.
+            status, body = request(
+                "POST",
+                "/api/projects",
+                {
+                    "name": "Draft Site Cafe",
+                    "copy": {
+                        "kicker": "Fresh",
+                        "title": "<script>alert(1)</script>",
+                        "body": "<img src=x onerror=alert(2)>",
+                        "ctaLabel": "Order now",
+                        "nav": [{"label": "Menu"}, {"label": "About"}],
+                        "services": [{"title": "<svg onload=alert(3)>", "body": "test", "price": "$1"}],
+                        "closeTitle": "Come by",
+                        "closeNote": "Open daily.",
+                        "palette": {"accent": "javascript:alert(4)"},
+                    },
+                },
+            )
+            require(status == 201, f"project creation with copy failed: {status} {body}")
+            require(body.get("draftSiteGenerated") is True, f"expected a draft site to be generated: {body}")
+
+            site_file = suite.root / "projects" / "draft-site-cafe" / "src" / "index.html"
+            require(site_file.is_file(), "draft site index.html was not written")
+            site_html = site_file.read_text(encoding="utf-8")
+            # The attribute text (e.g. "onerror=alert(2)") legitimately survives
+            # as inert escaped text content — html.escape() only neutralizes the
+            # surrounding angle brackets, which is what actually matters here.
+            require("<script>alert(1)</script>" not in site_html, "draft site did not escape a script tag payload")
+            require("<img src=x onerror=alert(2)>" not in site_html, "draft site left an executable <img onerror> tag unescaped")
+            require("<svg onload=alert(3)>" not in site_html, "draft site left an executable <svg onload> tag unescaped")
+            require("javascript:alert(4)" not in site_html, "draft site accepted an unsafe palette color value")
+            require("&lt;script&gt;" in site_html, "expected the escaped title to still appear in the page")
+            require("onerror=alert(2)" in site_html, "expected the neutralized payload text to still render as inert content")
+            shutil.rmtree(suite.root / "projects" / "draft-site-cafe", ignore_errors=True)
         finally:
             if process.poll() is None:
                 process.terminate()

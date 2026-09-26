@@ -28,6 +28,7 @@ REQUIRED_FILES = (
     "factory",
     "templates/PROJECT-BRIEF.md",
     "templates/PROJECT-STRUCTURE.md",
+    "templates/site-draft/index.html.tmpl",
     "tools/check-project.py",
     "tools/deployment-adapter.py",
     "tools/factory-doctor.py",
