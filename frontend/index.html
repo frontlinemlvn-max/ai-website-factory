@@ -779,17 +779,8 @@ class Component extends DCLogic {
       "Give exactly 3 services, drawn from what they said they do. " +
       "The palette must suit this industry (a tax firm is not a bakery): paper and band stay very light, ink stays dark enough to read at 4.5:1, accent carries the brand.";
 
-    try {
-      const raw = await window.claude.complete({
-        model: "claude-haiku-4-5",
-        max_tokens: 900,
-        system: "You are a copywriter. You return only valid JSON matching the requested shape.",
-        messages: [{ role: "user", content: prompt }]
-      });
+    const applyGenerated = (data) => {
       if (run !== this.genRun) return;
-      const start = raw.indexOf("{");
-      const end = raw.lastIndexOf("}");
-      const data = JSON.parse(raw.slice(start, end + 1));
       const svc = Array.isArray(data.services) ? data.services.filter(x => x && x.title).slice(0, 3) : [];
       this.setState({
         writing: false,
@@ -805,6 +796,44 @@ class Component extends DCLogic {
           palette: data.palette || null
         }
       });
+    };
+
+    // Prefer the Claude Design host's own copywriter when this page is open
+    // inside Claude Design itself. Outside that host (./factory frontend or
+    // ./factory preview), window.claude does not exist and this throws
+    // immediately, falling through to the real local backend below.
+    try {
+      const raw = await window.claude.complete({
+        model: "claude-haiku-4-5",
+        max_tokens: 900,
+        system: "You are a copywriter. You return only valid JSON matching the requested shape.",
+        messages: [{ role: "user", content: prompt }]
+      });
+      if (run !== this.genRun) return;
+      const start = raw.indexOf("{");
+      const end = raw.lastIndexOf("}");
+      applyGenerated(JSON.parse(raw.slice(start, end + 1)));
+      return;
+    } catch (e) {
+      // Fall through to the local backend.
+    }
+
+    // ./factory frontend's real /api/generate route, if running and
+    // configured with ANTHROPIC_API_KEY. Fails silently to the local
+    // deterministic draft (rendered from derived/this.draft) if the backend
+    // isn't running, isn't configured, or the request otherwise fails.
+    try {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: s.name, brief: s.brief, who, action: s.action, extras })
+      });
+      const data = await response.json().catch(() => null);
+      if (run !== this.genRun) return;
+      if (!response.ok || !data) {
+        throw new Error((data && data.error) || ("request failed with status " + response.status));
+      }
+      applyGenerated(data);
     } catch (e) {
       if (run !== this.genRun) return;
       this.setState({ writing: false, genError: "Could not reach the copywriter. Showing a draft from your brief." });

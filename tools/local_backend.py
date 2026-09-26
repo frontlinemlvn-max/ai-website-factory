@@ -9,17 +9,24 @@ and port, so the browser never needs cross-origin requests:
   GET  /api/health
   POST /api/projects
   GET  /api/projects/<slug>/status
+  POST /api/generate
 
 Project creation and status both delegate to the existing factory
 (tools/init-project.sh and each project's PROJECT-STATUS.md) rather than
-reimplementing scaffolding or workflow logic. Payments, domain purchase,
-publishing, deployment, and downloads are NOT implemented here — the
-frontend continues to simulate those, as documented in frontend/README.md.
+reimplementing scaffolding or workflow logic. /api/generate calls the real
+Anthropic API server-side, so the key never reaches the browser; it reads
+ANTHROPIC_API_KEY from the environment (or a .env file at the factory
+root — see load_dotenv) and fails closed with a clear error when absent,
+rather than silently falling back to fake output. Domain purchase,
+payments, publishing, deployment, and downloads are NOT implemented here —
+the frontend continues to simulate those, as documented in
+frontend/README.md.
 
 Reuses the same safety posture as tools/preview-server.py: loopback-only
-bind, path-traversal guards, a sliding-window rate limiter, and standard
-security headers. Never authenticates, never contacts a network service
-other than the local factory, and never accepts secret values.
+bind, path-traversal guards, sliding-window rate limiting (tighter for
+/api/generate, since each call costs real money), and standard security
+headers. Never contacts a network service other than the local factory and
+the Anthropic API, and never echoes the API key back to the client or logs.
 """
 
 from collections import deque
@@ -27,12 +34,15 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import argparse
 import json
+import os
 import posixpath
 import re
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.parse
+import urllib.request
 
 
 SECURITY_HEADERS = (
@@ -79,6 +89,34 @@ STATUS_FIELDS = (
     "Human Decisions Required",
     "Next Action",
 )
+
+ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
+ANTHROPIC_API_VERSION = "2023-06-01"
+ANTHROPIC_MODEL = "claude-haiku-4-5"
+ANTHROPIC_TIMEOUT_SECONDS = 30
+GENERATE_RATE_LIMIT_WINDOW_SECONDS = 60
+GENERATE_RATE_LIMIT_MAX_REQUESTS = 5
+
+
+def load_dotenv(path):
+    """Load KEY=VALUE lines from a .env file into os.environ, without
+    overriding a variable the shell already set. No third-party dependency;
+    intentionally minimal (no quoting, escaping, or multi-line values)."""
+    if not path.is_file():
+        return
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, _, value = stripped.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
 
 
 class BackendError(Exception):
@@ -155,8 +193,113 @@ def clean_list(value, max_items, max_item_length):
     return cleaned
 
 
+def build_copy_prompt(name, brief, who, action, extras):
+    summary = "\n".join(
+        [
+            "Business name: " + (name or "(not given)"),
+            "What they do, in the owner's words: " + (brief or "(not given)"),
+            "Who the site is for: " + (", ".join(who) or "(not specified)"),
+            "Main action a visitor should take: " + (action or "(not specified)"),
+            "Extra sections requested: " + (", ".join(extras) or "none"),
+        ]
+    )
+    return (
+        summary
+        + "\n\nWrite the home page copy for this business's website. "
+        "Everything must be specific to THIS business and its actual industry — if it is a "
+        "tax filing service write about tax filing, if it is a clothing brand write about the "
+        "clothing. Never mention bicycles or any business other than this one. Plain, "
+        "matter-of-fact voice. No exclamation marks, no buzzwords, no em dashes.\n\n"
+        "Reply with ONLY a JSON object, no code fence, in this exact shape:\n"
+        '{"kicker":"3-6 words, e.g. a location or specialism","title":"headline, max 12 words",'
+        '"body":"2 sentences, max 40 words","ctaLabel":"2-4 words matching the main action",'
+        '"nav":["3 one-word or two-word page names"],'
+        '"services":[{"title":"2-4 words","body":"1 sentence, max 22 words","price":"short price or scope line"}],'
+        '"closeTitle":"4-8 words inviting the main action","closeNote":"1 short line, max 16 words",'
+        '"palette":{"paper":"#rrggbb very light page background","ink":"#rrggbb near-black text",'
+        '"accent":"#rrggbb brand accent","band":"#rrggbb light tinted band"}}\n'
+        "Give exactly 3 services, drawn from what they said they do. The palette must suit this "
+        "industry (a tax firm is not a bakery): paper and band stay very light, ink stays dark "
+        "enough to read at 4.5:1, accent carries the brand."
+    )
+
+
+def call_anthropic(anthropic_key, prompt):
+    payload = json.dumps(
+        {
+            "model": ANTHROPIC_MODEL,
+            "max_tokens": 900,
+            "system": "You are a copywriter. You return only valid JSON matching the requested shape.",
+            "messages": [{"role": "user", "content": prompt}],
+        }
+    ).encode("utf-8")
+
+    request = urllib.request.Request(
+        ANTHROPIC_API_URL,
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "x-api-key": anthropic_key,
+            "anthropic-version": ANTHROPIC_API_VERSION,
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=ANTHROPIC_TIMEOUT_SECONDS) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")[:300]
+        sys.stderr.write(f"Anthropic API error {error.code}: {detail}\n")
+        raise BackendError(502, f"the AI provider returned an error (HTTP {error.code})") from None
+    except (urllib.error.URLError, TimeoutError) as error:
+        raise BackendError(502, "could not reach the AI provider") from error
+    except json.JSONDecodeError as error:
+        raise BackendError(502, "the AI provider returned an unreadable response") from error
+
+    try:
+        raw_text = body["content"][0]["text"]
+    except (KeyError, IndexError, TypeError) as error:
+        raise BackendError(502, "the AI provider response was missing the expected content") from error
+
+    start = raw_text.find("{")
+    end = raw_text.rfind("}")
+    if start == -1 or end == -1 or end < start:
+        raise BackendError(502, "the AI response could not be parsed as JSON")
+
+    try:
+        data = json.loads(raw_text[start : end + 1])
+    except json.JSONDecodeError as error:
+        raise BackendError(502, "the AI response was not valid JSON") from error
+
+    services = data.get("services")
+    services = [s for s in services if isinstance(s, dict) and s.get("title")] if isinstance(services, list) else []
+    nav = data.get("nav")
+    nav = [{"label": str(item)} for item in nav[:3]] if isinstance(nav, list) else []
+
+    return {
+        "kicker": str(data.get("kicker") or ""),
+        "title": str(data.get("title") or ""),
+        "body": str(data.get("body") or ""),
+        "ctaLabel": str(data.get("ctaLabel") or ""),
+        "nav": nav,
+        "services": [
+            {
+                "title": str(item.get("title") or ""),
+                "body": str(item.get("body") or ""),
+                "price": str(item.get("price") or ""),
+            }
+            for item in services[:3]
+        ],
+        "closeTitle": str(data.get("closeTitle") or ""),
+        "closeNote": str(data.get("closeNote") or ""),
+        "palette": data.get("palette") if isinstance(data.get("palette"), dict) else None,
+    }
+
+
 class BackendHandler(BaseHTTPRequestHandler):
     limiter = SlidingWindowLimiter(RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_SECONDS)
+    generate_limiter = SlidingWindowLimiter(GENERATE_RATE_LIMIT_MAX_REQUESTS, GENERATE_RATE_LIMIT_WINDOW_SECONDS)
     frontend_dir = None
     projects_dir = None
     init_script = None
@@ -235,6 +378,10 @@ class BackendHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/projects":
             self._handle_create_project()
+            return
+
+        if parsed.path == "/api/generate":
+            self._handle_generate()
             return
 
         if parsed.path.startswith("/api/"):
@@ -330,6 +477,40 @@ class BackendHandler(BaseHTTPRequestHandler):
         ]
         with brief_file.open("a", encoding="utf-8") as handle:
             handle.write("\n".join(lines))
+
+    def _handle_generate(self):
+        client = self.client_address[0] if self.client_address else "unknown"
+        if not self.generate_limiter.allow(client):
+            self._send_json(429, {"error": "Too many generation requests. Try again shortly."})
+            return
+
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+        if not anthropic_key:
+            self._send_json(
+                503,
+                {
+                    "error": "AI generation is not configured. Set ANTHROPIC_API_KEY in the "
+                    "environment or in a .env file at the factory root, then restart "
+                    "./factory frontend."
+                },
+            )
+            return
+
+        try:
+            data = self._read_json_body()
+            name = clean_text(data.get("name"), MAX_NAME_LENGTH)
+            brief = clean_text(data.get("brief"), MAX_TEXT_FIELD_LENGTH)
+            action = clean_text(data.get("action"), 200)
+            who = clean_list(data.get("who"), MAX_LIST_ITEMS, 200)
+            extras = clean_list(data.get("extras"), MAX_LIST_ITEMS, 200)
+
+            prompt = build_copy_prompt(name, brief, who, action, extras)
+            copy_data = call_anthropic(anthropic_key, prompt)
+            self._send_json(200, copy_data)
+        except BackendError as error:
+            self._send_json(error.status, {"error": error.message})
+        except Exception:  # noqa: BLE001 - never leak internals to the client
+            self._send_json(500, {"error": "an unexpected error occurred"})
 
     def _handle_status(self, slug):
         if not SLUG_PATTERN.match(slug):
@@ -455,6 +636,14 @@ def main(argv=None):
     if not projects_dir.is_dir():
         print(f"Error: projects directory does not exist at {projects_dir}.", file=sys.stderr)
         return 1
+
+    load_dotenv(projects_dir.parent / ".env")
+    if not os.environ.get("ANTHROPIC_API_KEY", "").strip():
+        print(
+            "Note: ANTHROPIC_API_KEY is not set. /api/generate will return 503 until it is "
+            "set in the environment or in a .env file at the factory root.",
+            file=sys.stderr,
+        )
 
     init_script = projects_dir.parent / "tools" / "init-project.sh"
     if not init_script.is_file():

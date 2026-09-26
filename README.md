@@ -251,14 +251,20 @@ Serves `frontend/` and a small JSON API from the same origin and port
   duplicated), then appends the submitted intake fields to the new
   `PROJECT-BRIEF.md` as an unverified summary for human review.
 - `GET /api/projects/<slug>/status` — reads the project's `PROJECT-STATUS.md`.
+- `POST /api/generate` — calls the real Anthropic API server-side to write home-page
+  copy from the submitted brief. Requires `ANTHROPIC_API_KEY` (environment or a
+  `.env` file at the factory root; see `.env.example`) — fails closed with a clear
+  503 rather than fabricating output when it's not set. Limited to 5 requests/minute
+  per IP, since each call costs real money.
 
 When run this way, finishing the frontend's onboarding wizard creates a real
 project under `projects/` and shows its live stage in a small "Factory record"
-readout. If the backend isn't running (the static-only option above), the page
-fails silently and keeps its fully simulated behavior — no functionality is lost
-either way. **Payments, domain purchase, publishing, deployment, and downloads
-remain explicitly simulated** in both modes; only project creation and status are
-real. See `frontend/README.md` for the full boundary and the export technology.
+readout, and copy generation uses the real API when configured. If the backend
+isn't running (the static-only option above) or `/api/generate` isn't configured,
+the page fails silently and keeps its fully simulated/local-draft behavior — no
+functionality is lost either way. **Payments, domain purchase, publishing,
+deployment, and downloads remain explicitly simulated** in both modes. See
+`frontend/README.md` for the full boundary and the export technology.
 
 ## Scan for secrets
 

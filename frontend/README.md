@@ -51,21 +51,22 @@ Fonts are loaded from their CDNs. Both servers bind only to the local computer.
 
 ## Prototype boundaries
 
-- Claude-powered copy generation uses `window.claude.complete`, which exists in the
-  Claude Design host but not in a normal local browser. The page catches that error
-  and shows a deterministic draft generated from the entered brief. This is
-  unaffected by which run option above you use.
+- Claude-powered copy generation prefers `window.claude.complete` (available inside
+  the Claude Design host), then falls back to the local backend's real
+  `/api/generate` (see below) when run via `./factory frontend`, then finally to a
+  deterministic draft generated from the entered brief if neither is available or
+  configured. Which of these three actually ran is not shown in the UI — the visible
+  result looks the same either way, by design.
 - Domain availability, registration, payment, publishing, and source-download actions
-  remain simulated interface states in both run options. They do not contact a
+  remain simulated interface states in every run option. They do not contact a
   registrar, payment provider, or deployment service.
-- No credentials belong in this directory. AI provider keys, if this prototype is
-  ever wired to a real copywriting API, belong in a server-side service — never in
-  browser code.
+- No credentials belong in this directory. The Anthropic API key used by
+  `/api/generate` lives server-side only (environment variable or `.env` at the
+  factory root) — the browser never sees it.
 
 ## Local backend vertical slice
 
-Run with `./factory frontend` (see `tools/local_backend.py`) and project creation
-and status become real:
+Run with `./factory frontend` (see `tools/local_backend.py`) and these become real:
 
 - `GET /api/health`
 - `POST /api/projects` — validates the submitted name, derives a slug, and calls the
@@ -77,18 +78,23 @@ and status become real:
 - `GET /api/projects/<slug>/status` — reads the project's `PROJECT-STATUS.md` and
   returns its stage, owner, active work, blockers, known issues, human decisions,
   and next action.
+- `POST /api/generate` — calls the real Anthropic API server-side (`claude-haiku-4-5`)
+  with the submitted brief, using the same prompt/response shape `window.claude.complete`
+  already expects. Requires `ANTHROPIC_API_KEY` in the environment or in a `.env` file
+  at the factory root (see `.env.example`); **fails closed with a clear 503** rather
+  than fabricating output when the key is missing. Limited to 5 requests/minute per
+  IP — tighter than the other routes' 180/minute, since each call costs real money.
 
-`index.html` calls these once the onboarding wizard finishes and shows the result in
-a small "Factory record" line — but only when a response actually comes back; any
-failure (backend not running, network error) is caught silently and the fully
-simulated experience continues exactly as before. Payments, domain purchase,
-publishing, deployment, and downloads are unaffected either way — they stay
-simulated regardless of which run option is used.
+`index.html` calls `/api/projects` once the onboarding wizard finishes and shows the
+result in a small "Factory record" line — but only when a response actually comes
+back; any failure (backend not running, network error, generation not configured) is
+caught silently and the fully simulated/local-draft experience continues exactly as
+before. Payments, domain purchase, publishing, deployment, and downloads are
+unaffected either way — they stay simulated regardless of which run option is used.
 
 ## Further integration boundary
 
-Keep this prototype as the presentation layer. If real AI generation, payments, or
-deployment are added later, place a server-side API between the browser and any
-provider credentials — the pattern already used here for project creation/status,
-just extended to more operations (generation job creation, job status, preview,
-publish). Never move provider API keys or factory logic into browser code.
+Keep this prototype as the presentation layer. Real AI copy generation now runs
+server-side (see above) using this same pattern; if payments or deployment are added
+later, extend it the same way — a server-side API between the browser and any
+provider credentials, never provider keys or factory logic moved into browser code.

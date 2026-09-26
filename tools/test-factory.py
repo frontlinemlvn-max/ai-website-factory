@@ -984,13 +984,18 @@ def run_suite(suite):
             port = probe.getsockname()[1]
         base = f"http://127.0.0.1:{port}"
 
+        # Never let a real key from the developer's shell reach this test: it
+        # must stay fully offline and never trigger a real, paid API call.
+        no_ai_key_environment = dict(suite.environment)
+        no_ai_key_environment.pop("ANTHROPIC_API_KEY", None)
+
         process = subprocess.Popen(
             [str(suite.factory), "frontend", str(port)],
             cwd=suite.root,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            env=suite.environment,
+            env=no_ai_key_environment,
         )
 
         def request(method, path, payload=None):
@@ -1068,6 +1073,26 @@ def run_suite(suite):
 
             status, body = request("POST", "/api/projects", {})
             require(status == 400, f"missing name should be rejected: {status} {body}")
+
+            # /api/generate must fail closed (never fabricate copy) when no
+            # ANTHROPIC_API_KEY is configured, which is guaranteed above. This
+            # first call is request 1 of the endpoint's 5-per-minute limit.
+            status, body = request("POST", "/api/generate", {"name": "Test Cafe", "brief": "coffee"})
+            require(status == 503, f"generate without a configured key should fail closed: {status} {body}")
+            require(
+                "ANTHROPIC_API_KEY" in (body.get("error") or ""),
+                f"unconfigured-key error should name the required variable: {body}",
+            )
+
+            # local_backend.py limits /api/generate to 5 requests/minute; the
+            # call above was request 1, so 4 more (requests 2-5) should still
+            # be allowed through to the fail-closed check, and the 6th must
+            # be rate-limited instead.
+            for _ in range(4):
+                status, _ = request("POST", "/api/generate", {"name": "x"})
+                require(status == 503, "expected requests within the limit to still reach the fail-closed check")
+            status, body = request("POST", "/api/generate", {"name": "x"})
+            require(status == 429, f"generate should apply its own strict rate limit: {status} {body}")
         finally:
             if process.poll() is None:
                 process.terminate()
@@ -1078,7 +1103,10 @@ def run_suite(suite):
                 process.communicate(timeout=3)
             shutil.rmtree(suite.root / "projects" / "backend-test-cafe", ignore_errors=True)
 
-    suite.case("local backend serves the frontend and a validated project API", local_backend_case)
+    suite.case(
+        "local backend serves the frontend, a validated project API, and fail-closed generation",
+        local_backend_case,
+    )
 
 
 def main():
