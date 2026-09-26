@@ -31,6 +31,7 @@ REQUIRED_FILES = (
     "templates/site-draft/index.html.tmpl",
     "tools/check-project.py",
     "tools/deployment-adapter.py",
+    "tools/domain-adapter.py",
     "tools/factory-doctor.py",
     "tools/factory_stages.py",
     "tools/init-project.sh",

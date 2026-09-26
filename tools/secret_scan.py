@@ -20,6 +20,7 @@ SENSITIVE_NAMES = {
     "service-account.json",
     "id_rsa",
     "id_ed25519",
+    ".domain-contact.json",
 }
 SENSITIVE_SUFFIXES = {".key", ".p12", ".pfx", ".pem"}
 SECRET_SIGNATURES = (

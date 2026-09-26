@@ -266,9 +266,40 @@ real copy was obtained (from the API above), it's also rendered into an actual
 If the backend isn't running, `/api/generate` isn't configured, or generation
 otherwise fails, the page fails silently and keeps its fully simulated/local-draft
 behavior — no functionality is lost, and no fabricated content is ever written to
-disk. **Payments, domain purchase, publishing, deployment, and downloads remain
-explicitly simulated** in every mode. See `frontend/README.md` for the full boundary
-and the export technology.
+disk. The domain step's "Check availability" also becomes real when `VERCEL_TOKEN` is
+set, using Vercel's Domains Registrar API — but **registering (buying) a domain is
+never reachable from the browser**, since this server has no user authentication that
+could safely gate who is allowed to spend money; that's a deliberate separate CLI
+step (see below). **Payments, publishing, and deployment remain explicitly
+simulated** in every mode. See `frontend/README.md` for the full boundary and the
+export technology.
+
+## Register a domain
+
+Real domain registration is a separate, explicitly-confirmed CLI command — never
+something a web request can trigger:
+
+```bash
+./factory buy-domain client-website example.com --dry-run
+```
+
+Checks real availability and price via Vercel's Domains Registrar API (requires
+`VERCEL_TOKEN`; read-only, no cost) and confirms a registrant-contact file is ready,
+without registering anything. Once you've reviewed the price and terms it prints:
+
+```bash
+./factory buy-domain client-website example.com --confirm PURCHASE --expected-price 12.99
+```
+
+`--expected-price` must match the current live price (from the dry run) or the
+purchase is refused — this guards against the price changing between the two steps.
+Registrant contact information is read from `.domain-contact.json` at the factory
+root (gitignored, never committed, never printed, treated as a sensitive file by
+`./factory scan-secrets`) — a JSON object with `firstName`, `lastName`, `email`,
+`phone`, `address1`, `city`, `state`, `zip`, `country` (see Vercel's docs for the
+exact format). A successful purchase is recorded in the project's
+`documentation/DEPLOYMENT.md` (domain, order ID, price, date) — never the contact
+details themselves.
 
 ## Scan for secrets
 

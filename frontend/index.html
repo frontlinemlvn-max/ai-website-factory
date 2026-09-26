@@ -673,7 +673,8 @@ class Component extends DCLogic {
     action: "Book a slot",
     extras: { "Price list": true, "Map and hours": true, "Photo gallery": false, "Newsletter": false, "Online shop": false },
     backend: null,
-    backendError: null
+    backendError: null,
+    realDomainResults: null
   };
 
   actionList = ["Book a slot", "Call us", "Buy online", "Join the newsletter"];
@@ -891,7 +892,7 @@ class Component extends DCLogic {
       .replace(/^-+|-+$/g, "").slice(0, 40);
   }
 
-  onDomain = (e) => this.setState({ domainQuery: e.target.value, domainChecked: false });
+  onDomain = (e) => this.setState({ domainQuery: e.target.value, domainChecked: false, realDomainResults: null });
 
   nameSlug() {
     return (this.state.name || "your-site").toLowerCase()
@@ -902,12 +903,30 @@ class Component extends DCLogic {
     return this.state.domainQuery === undefined ? this.nameSlug() : this.state.domainQuery;
   }
 
+  // Tries the real Vercel Domains Registrar API (via ./factory frontend's
+  // /api/domains/check) for every candidate TLD in parallel. Falls back to
+  // the deterministic simulated availability below when the backend isn't
+  // running, isn't configured with VERCEL_TOKEN, or any request fails -
+  // exactly the same silent-fallback pattern used for copy generation.
+  // Registering a domain is NOT wired here or anywhere reachable from the
+  // browser; see ./factory buy-domain.
   checkDomain = () => {
     const root = this.domainRoot(this.currentDomainQuery());
     if (!root) return;
-    this.setState({ checking: true, domainChecked: false });
-    clearTimeout(this.d);
-    this.d = setTimeout(() => this.setState({ checking: false, domainChecked: true }), 700);
+    this.setState({ checking: true, domainChecked: false, realDomainResults: null });
+    this.domainCheckRun = (this.domainCheckRun || 0) + 1;
+    const runId = this.domainCheckRun;
+    const candidates = this.tldDefs.map(d => root + d.tld);
+
+    Promise.all(candidates.map(domain =>
+      fetch("/api/domains/check?name=" + encodeURIComponent(domain))
+        .then(r => (r.ok ? r.json() : null))
+        .catch(() => null)
+    )).then(results => {
+      if (runId !== this.domainCheckRun) return;
+      const allResolved = results.every(r => r && typeof r.available === "boolean");
+      this.setState({ checking: false, domainChecked: true, realDomainResults: allResolved ? results : null });
+    });
   };
 
   buyDomain = (domain, price) => {
@@ -1200,15 +1219,17 @@ class Component extends DCLogic {
       domainReceipt: s.boughtDomain
         ? s.boughtDomain + " registered · " + this.money(s.boughtPrice) + " CAD for the first year"
         : "",
-      domainResults: this.tldDefs.map(d => {
+      domainResults: this.tldDefs.map((d, i) => {
         const domain = domainRoot + d.tld;
-        const taken = (this.hash(domain) % 100) < d.takenBias;
-        const price = this.retail(d.cost);
+        const real = s.realDomainResults && s.realDomainResults[i];
+        const available = real ? real.available : !((this.hash(domain) % 100) < d.takenBias);
+        const price = real && real.available && real.purchasePrice != null ? real.purchasePrice : this.retail(d.cost);
+        const currency = real ? "USD" : "CAD";
         return {
           domain, note: d.note,
-          price: this.money(price) + " CAD",
+          price: this.money(price) + " " + currency,
           per: "/year",
-          available: !taken, taken,
+          available, taken: !available,
           buying: s.buying === domain,
           notBuying: s.buying !== domain,
           buyLabel: s.buying === domain ? "Registering…" : "Buy",

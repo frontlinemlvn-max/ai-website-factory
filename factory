@@ -25,6 +25,8 @@ Usage:
   ./factory rollback <project-name> <deployment-id-or-url> --confirm ROLLBACK
   ./factory preview <project-name> [port]
   ./factory frontend [port]
+  ./factory buy-domain <project-name> <domain> --dry-run
+  ./factory buy-domain <project-name> <domain> --confirm PURCHASE --expected-price <price>
   ./factory scan-secrets [project-name]
   ./factory check <project-name>
   ./factory test
@@ -51,6 +53,8 @@ Examples:
   ./factory preview factory-demo 9000
   ./factory frontend
   ./factory frontend 5000
+  ./factory buy-domain client-website example.com --dry-run
+  ./factory buy-domain client-website example.com --confirm PURCHASE --expected-price 12.99
   ./factory scan-secrets
   ./factory scan-secrets factory-demo
   ./factory check factory-demo
@@ -323,6 +327,24 @@ case "$COMMAND" in
     printf 'Press Ctrl-C to stop.\n'
 
     exec python3 "$BACKEND_SERVER" --port "$PORT" --bind 127.0.0.1 --frontend-dir "$FRONTEND_DIR" --projects-dir "$FACTORY_ROOT/projects"
+    ;;
+  buy-domain)
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to check or buy a domain."
+    DOMAIN_ADAPTER="$FACTORY_ROOT/tools/domain-adapter.py"
+    [ -f "$DOMAIN_ADAPTER" ] || fail "domain adapter is missing at $DOMAIN_ADAPTER."
+
+    if [ "$#" -eq 4 ] && [ "$4" = "--dry-run" ]; then
+      exec python3 "$DOMAIN_ADAPTER" dry-run "$2" "$3"
+    fi
+
+    if [ "$#" -eq 7 ] && [ "$4" = "--confirm" ] && [ "$6" = "--expected-price" ]; then
+      exec python3 "$DOMAIN_ADAPTER" buy "$2" "$3" "$5" "$7"
+    fi
+
+    printf 'Usage:\n' >&2
+    printf '  ./factory buy-domain <project-name> <domain> --dry-run\n' >&2
+    printf '  ./factory buy-domain <project-name> <domain> --confirm PURCHASE --expected-price <price>\n' >&2
+    exit 1
     ;;
   scan-secrets)
     if [ "$#" -gt 2 ]; then

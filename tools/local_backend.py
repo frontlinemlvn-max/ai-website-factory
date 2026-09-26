@@ -100,6 +100,16 @@ ANTHROPIC_TIMEOUT_SECONDS = 30
 GENERATE_RATE_LIMIT_WINDOW_SECONDS = 60
 GENERATE_RATE_LIMIT_MAX_REQUESTS = 5
 
+VERCEL_API_BASE = "https://api.vercel.com"
+VERCEL_TIMEOUT_SECONDS = 15
+DOMAIN_RATE_LIMIT_WINDOW_SECONDS = 60
+DOMAIN_RATE_LIMIT_MAX_REQUESTS = 20
+# A domain label (before the first dot) per RFC 1035: letters, digits, and
+# internal hyphens, 1-63 characters, not starting or ending with a hyphen.
+DOMAIN_PATTERN = re.compile(
+    r"^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$"
+)
+
 
 def load_dotenv(path):
     """Load KEY=VALUE lines from a .env file into os.environ, without
@@ -300,6 +310,72 @@ def call_anthropic(anthropic_key, prompt):
     }
 
 
+def call_vercel_api(method, path, vercel_token, team_id=None, body=None):
+    """Call the Vercel REST API. Never logs or returns the token. Raises
+    BackendError with a safe, generic message on any failure — callers must
+    not leak Vercel's raw error body to the client."""
+    query = f"?teamId={urllib.parse.quote(team_id)}" if team_id else ""
+    url = f"{VERCEL_API_BASE}{path}{query}"
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    request = urllib.request.Request(
+        url,
+        data=data,
+        method=method,
+        headers={
+            "Authorization": f"Bearer {vercel_token}",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=VERCEL_TIMEOUT_SECONDS) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")[:300]
+        sys.stderr.write(f"Vercel API error {error.code} on {method} {path}: {detail}\n")
+        try:
+            parsed = json.loads(detail)
+            message = parsed.get("error", {}).get("message") or parsed.get("message") or f"HTTP {error.code}"
+        except (json.JSONDecodeError, AttributeError):
+            message = f"HTTP {error.code}"
+        raise BackendError(502, f"Vercel rejected the request: {message}") from None
+    except (urllib.error.URLError, TimeoutError) as error:
+        raise BackendError(502, "could not reach Vercel") from error
+    except json.JSONDecodeError as error:
+        raise BackendError(502, "Vercel returned an unreadable response") from error
+
+
+def check_domain(domain, vercel_token, team_id=None):
+    """Real availability + price lookup via Vercel's Domains Registrar API.
+    Read-only: never purchases anything. Returns a normalized dict."""
+    availability = call_vercel_api(
+        "POST",
+        "/v1/registrar/domains/availability",
+        vercel_token,
+        team_id,
+        body={"domains": [domain]},
+    )
+    results = availability.get("results") or []
+    match = next((r for r in results if r.get("domain") == domain), None)
+    available = bool(match and match.get("available"))
+
+    if not available:
+        return {"domain": domain, "available": False}
+
+    price_data = call_vercel_api(
+        "GET",
+        f"/v1/registrar/domains/{urllib.parse.quote(domain)}/price",
+        vercel_token,
+        team_id,
+    )
+    return {
+        "domain": domain,
+        "available": True,
+        "years": price_data.get("years"),
+        "purchasePrice": price_data.get("purchasePrice"),
+        "renewalPrice": price_data.get("renewalPrice"),
+    }
+
+
 SITE_DRAFT_TEMPLATE = Path(__file__).resolve().parent.parent / "templates" / "site-draft" / "index.html.tmpl"
 
 # Matches yyz-caregivers' verified-accessible pilot palette (see
@@ -388,6 +464,7 @@ def render_draft_site(business_name, copy_data):
 class BackendHandler(BaseHTTPRequestHandler):
     limiter = SlidingWindowLimiter(RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_SECONDS)
     generate_limiter = SlidingWindowLimiter(GENERATE_RATE_LIMIT_MAX_REQUESTS, GENERATE_RATE_LIMIT_WINDOW_SECONDS)
+    domain_limiter = SlidingWindowLimiter(DOMAIN_RATE_LIMIT_MAX_REQUESTS, DOMAIN_RATE_LIMIT_WINDOW_SECONDS)
     frontend_dir = None
     projects_dir = None
     init_script = None
@@ -451,6 +528,10 @@ class BackendHandler(BaseHTTPRequestHandler):
         status_match = re.fullmatch(r"/api/projects/([^/]+)/status", parsed.path)
         if status_match:
             self._handle_status(status_match.group(1))
+            return
+
+        if parsed.path == "/api/domains/check":
+            self._handle_domain_check(urllib.parse.parse_qs(parsed.query))
             return
 
         if parsed.path.startswith("/api/"):
@@ -625,6 +706,43 @@ class BackendHandler(BaseHTTPRequestHandler):
             prompt = build_copy_prompt(name, brief, who, action, extras)
             copy_data = call_anthropic(anthropic_key, prompt)
             self._send_json(200, copy_data)
+        except BackendError as error:
+            self._send_json(error.status, {"error": error.message})
+        except Exception:  # noqa: BLE001 - never leak internals to the client
+            self._send_json(500, {"error": "an unexpected error occurred"})
+
+    def _handle_domain_check(self, query):
+        """Read-only: checks real availability and price via Vercel's
+        Domains Registrar API. Never purchases anything — buying a domain is
+        intentionally a separate, explicitly-confirmed CLI step
+        (./factory buy-domain), never something a browser request can
+        trigger, since this server has no authentication of its own."""
+        client = self.client_address[0] if self.client_address else "unknown"
+        if not self.domain_limiter.allow(client):
+            self._send_json(429, {"error": "Too many domain checks. Try again shortly."})
+            return
+
+        vercel_token = os.environ.get("VERCEL_TOKEN", "").strip()
+        if not vercel_token:
+            self._send_json(
+                503,
+                {
+                    "error": "Domain checking is not configured. Set VERCEL_TOKEN in the "
+                    "environment or in a .env file at the factory root, then restart "
+                    "./factory frontend."
+                },
+            )
+            return
+
+        domain = (query.get("name", [""])[0] or "").strip().lower()
+        if not domain or not DOMAIN_PATTERN.match(domain) or len(domain) > 253:
+            self._send_json(400, {"error": "provide a valid domain name, e.g. example.com"})
+            return
+
+        try:
+            team_id = os.environ.get("VERCEL_TEAM_ID", "").strip() or None
+            result = check_domain(domain, vercel_token, team_id)
+            self._send_json(200, result)
         except BackendError as error:
             self._send_json(error.status, {"error": error.message})
         except Exception:  # noqa: BLE001 - never leak internals to the client

@@ -985,9 +985,12 @@ def run_suite(suite):
         base = f"http://127.0.0.1:{port}"
 
         # Never let a real key from the developer's shell reach this test: it
-        # must stay fully offline and never trigger a real, paid API call.
-        no_ai_key_environment = dict(suite.environment)
-        no_ai_key_environment.pop("ANTHROPIC_API_KEY", None)
+        # must stay fully offline and never contact Anthropic, Vercel's
+        # registrar API, or trigger any real, paid call.
+        no_external_key_environment = dict(suite.environment)
+        no_external_key_environment.pop("ANTHROPIC_API_KEY", None)
+        no_external_key_environment.pop("VERCEL_TOKEN", None)
+        no_external_key_environment.pop("VERCEL_TEAM_ID", None)
 
         process = subprocess.Popen(
             [str(suite.factory), "frontend", str(port)],
@@ -995,7 +998,7 @@ def run_suite(suite):
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            env=no_ai_key_environment,
+            env=no_external_key_environment,
         )
 
         def request(method, path, payload=None):
@@ -1131,6 +1134,19 @@ def run_suite(suite):
             require("&lt;script&gt;" in site_html, "expected the escaped title to still appear in the page")
             require("onerror=alert(2)" in site_html, "expected the neutralized payload text to still render as inert content")
             shutil.rmtree(suite.root / "projects" / "draft-site-cafe", ignore_errors=True)
+
+            # /api/domains/check must fail closed (never fabricate
+            # availability/price) when no VERCEL_TOKEN is configured, which
+            # is guaranteed by no_external_key_environment above.
+            status, body = request("GET", "/api/domains/check?name=example.com")
+            require(status == 503, f"domain check without a configured token should fail closed: {status} {body}")
+            require(
+                "VERCEL_TOKEN" in (body.get("error") or ""),
+                f"unconfigured-token error should name the required variable: {body}",
+            )
+
+            status, body = request("GET", "/api/domains/check?name=not_a_valid_domain")
+            require(status == 503, f"format validation runs after the token check: {status} {body}")
         finally:
             if process.poll() is None:
                 process.terminate()
@@ -1145,6 +1161,52 @@ def run_suite(suite):
         "local backend serves the frontend, a validated project API, and fail-closed generation",
         local_backend_case,
     )
+
+    def buy_domain_safety_case():
+        # Every path here must be rejected before any real Vercel call or
+        # spend could occur — this test never provides a valid token, contact
+        # file, or reaches the confirmation stage with correct arguments.
+        #
+        # suite.run()'s `environment` kwarg is MERGED onto the developer's
+        # real environment (dict.update()), not a replacement — an inherited
+        # real VERCEL_TOKEN would survive a naive {} override. Explicitly set
+        # both to empty strings so the effective value is always falsy,
+        # regardless of what the developer's own shell has exported.
+        no_vercel = {"VERCEL_TOKEN": "", "VERCEL_TEAM_ID": ""}
+        with_fake_token = {"VERCEL_TOKEN": "fake-test-token", "VERCEL_TEAM_ID": ""}
+
+        result = suite.run("buy-domain", PROJECT_NAME, "example.com", "--dry-run", environment=no_vercel)
+        suite.expect(result, 1, "VERCEL_TOKEN is not set")
+
+        result = suite.run(
+            "buy-domain", "does-not-exist-project", "example.com", "--dry-run", environment=with_fake_token,
+        )
+        suite.expect(result, 1, "does not exist")
+
+        result = suite.run(
+            "buy-domain", PROJECT_NAME, "not_a_valid_domain", "--dry-run", environment=with_fake_token,
+        )
+        suite.expect(result, 1, "not a valid domain name")
+
+        result = suite.run(
+            "buy-domain", PROJECT_NAME, "example.com", "--confirm", "WRONG", "--expected-price", "12.99",
+            environment=no_vercel,
+        )
+        suite.expect(result, 1, "confirmation must be exactly 'PURCHASE'")
+
+        # Correct confirmation, but still no VERCEL_TOKEN and no contact
+        # file: must stop before any purchase, never reach the network.
+        result = suite.run(
+            "buy-domain", PROJECT_NAME, "example.com", "--confirm", "PURCHASE", "--expected-price", "12.99",
+            environment=no_vercel,
+        )
+        suite.expect(result, 1, "VERCEL_TOKEN is not set")
+        require(
+            "orderId" not in result.output and "Domain registered" not in result.output,
+            "buy-domain must never report success without a real token",
+        )
+
+    suite.case("buy-domain rejects every unsafe path before any purchase could occur", buy_domain_safety_case)
 
 
 def main():

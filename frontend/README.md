@@ -57,12 +57,15 @@ Fonts are loaded from their CDNs. Both servers bind only to the local computer.
   deterministic draft generated from the entered brief if neither is available or
   configured. Which of these three actually ran is not shown in the UI — the visible
   result looks the same either way, by design.
-- Domain availability, registration, payment, publishing, and source-download actions
-  remain simulated interface states in every run option. They do not contact a
-  registrar, payment provider, or deployment service.
+- Domain **availability and pricing** becomes real when `VERCEL_TOKEN` is configured
+  (see below), falling back to the existing simulated results otherwise. Domain
+  **registration** (actually buying it), payment, publishing, and source-download
+  actions remain simulated interface states in every run option — none of them are
+  reachable from the browser at all, by design (see "Domain registration" below for
+  why).
 - No credentials belong in this directory. The Anthropic API key used by
-  `/api/generate` lives server-side only (environment variable or `.env` at the
-  factory root) — the browser never sees it.
+  `/api/generate` and the Vercel token used by domain checks live server-side only
+  (environment variable or `.env` at the factory root) — the browser never sees them.
 
 ## Local backend vertical slice
 
@@ -104,6 +107,18 @@ in this chain (backend not running, network error, generation not configured) is
 caught silently and the fully simulated/local-draft experience continues exactly as
 before. Payments, domain purchase, publishing, deployment, and downloads are
 unaffected either way — they stay simulated regardless of which run option is used.
+
+## Domain registration is intentionally CLI-only
+
+`GET /api/domains/check?name=<domain>` (real, via Vercel's Domains Registrar API,
+fails closed with a 503 if `VERCEL_TOKEN` isn't set) is the only domain-related
+backend route. There is no `/api/domains/buy` or equivalent, and there never should
+be one reachable from the browser: this server has no user-authentication system, so
+any endpoint that could spend real, non-refundable money would be triggerable by
+anyone who can reach the URL, not just the account owner. Registering a domain is a
+separate CLI command, `./factory buy-domain` (see the root `README.md` and
+`tools/domain-adapter.py`), run directly by whoever controls the Vercel account and
+its billing.
 
 ## Further integration boundary
 
