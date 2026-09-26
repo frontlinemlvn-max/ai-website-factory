@@ -270,9 +270,14 @@ disk. The domain step's "Check availability" also becomes real when `VERCEL_TOKE
 set, using Vercel's Domains Registrar API — but **registering (buying) a domain is
 never reachable from the browser**, since this server has no user authentication that
 could safely gate who is allowed to spend money; that's a deliberate separate CLI
-step (see below). **Payments, publishing, and deployment remain explicitly
-simulated** in every mode. See `frontend/README.md` for the full boundary and the
-export technology.
+step (see below). Clicking "Publish" checks the project's real stage via the existing
+status endpoint and reports it honestly (it will say so if the draft still needs the
+full review pipeline) rather than fabricating a "live" result — it only shows as live
+once the project has actually reached `Deployed`, which requires the owner to run
+`./factory deploy` themselves; that command is unaffected and unchanged by this. **No
+part of publishing/deployment is triggerable from the browser, and payments remain
+explicitly simulated** in every mode. See `frontend/README.md` for the full boundary
+and the export technology.
 
 ## Register a domain
 

@@ -517,6 +517,10 @@
         </sc-if>
       </div>
 
+      <sc-if value="{{ hasPublishError }}">
+        <div style="padding: 10px 14px; font-size: 12px; background: color-mix(in srgb, var(--color-warning, orange) 14%, transparent); border-bottom: 1px solid var(--color-divider);">{{ publishErrorText }}</div>
+      </sc-if>
+
       <div style="{{ pageStyle }}">
         <div style="{{ navStyle }}">
           <span style="{{ brandStyle }}">{{ name }}</span>
@@ -674,7 +678,9 @@ class Component extends DCLogic {
     extras: { "Price list": true, "Map and hours": true, "Photo gallery": false, "Newsletter": false, "Online shop": false },
     backend: null,
     backendError: null,
-    realDomainResults: null
+    realDomainResults: null,
+    publishing: false,
+    publishError: null
   };
 
   actionList = ["Book a slot", "Call us", "Buy online", "Join the newsletter"];
@@ -855,7 +861,45 @@ class Component extends DCLogic {
     this.setState({ at: 0, running: false, finished: false, published: false, gen: null, writing: false, genError: null });
   };
 
-  publish = () => this.setState({ published: true });
+  // Real publishing (actually running ./factory deploy) is intentionally
+  // never triggered from here or anywhere in the browser — this server has
+  // no user-authentication system, so an open "deploy" action would let
+  // anyone who can reach the URL publish real content under the owner's
+  // account. Clicking Publish instead checks the REAL project stage and
+  // reports it honestly. Only when a project has genuinely already been
+  // deployed (by the owner, via ./factory deploy, run directly) does this
+  // show as live. Falls back to the prior simulated toggle when there is no
+  // real backend project to check against.
+  publish = async () => {
+    const backend = this.state.backend;
+    if (!backend || !backend.slug) {
+      this.setState({ published: true, publishError: null });
+      return;
+    }
+    this.setState({ publishing: true, publishError: null });
+    try {
+      const response = await fetch("/api/projects/" + encodeURIComponent(backend.slug) + "/status");
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data) throw new Error("status check failed");
+      const merged = { ...backend, ...data };
+      if (data.stage === "Deployed") {
+        this.setState({ publishing: false, published: true, publishError: null, backend: merged });
+      } else {
+        this.setState({
+          publishing: false,
+          published: false,
+          backend: merged,
+          publishError: 'Not live — real status: "' + (data.stage || "unknown") + '". This draft ' +
+            "needs the full review pipeline (Architecture, Design, Development, QA, and every " +
+            "specialist review) before it can be published. See projects/" + backend.slug +
+            "/PROJECT-STATUS.md for the exact next step."
+        });
+      }
+    } catch (e) {
+      // Backend unreachable — fall back to the simulated experience.
+      this.setState({ publishing: false, published: true, publishError: null });
+    }
+  };
 
   planDefs = [
     { key: "once", name: "One-time export", price: "$39 CAD", cadence: "per site, one payment",
@@ -1184,7 +1228,9 @@ class Component extends DCLogic {
 
       url: s.boughtDomain ? s.boughtDomain : "preview.factory.build/" + slug,
       published: !!s.published,
-      publishLabel: s.published ? "Published" : "Publish",
+      publishLabel: s.publishing ? "Checking…" : (s.published ? "Published" : "Publish"),
+      hasPublishError: !!s.publishError,
+      publishErrorText: s.publishError || "",
       restart: this.restart,
       publish: this.publish,
       readyNote: s.boughtDomain

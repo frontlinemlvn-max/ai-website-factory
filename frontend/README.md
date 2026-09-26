@@ -59,10 +59,17 @@ Fonts are loaded from their CDNs. Both servers bind only to the local computer.
   result looks the same either way, by design.
 - Domain **availability and pricing** becomes real when `VERCEL_TOKEN` is configured
   (see below), falling back to the existing simulated results otherwise. Domain
-  **registration** (actually buying it), payment, publishing, and source-download
-  actions remain simulated interface states in every run option — none of them are
-  reachable from the browser at all, by design (see "Domain registration" below for
-  why).
+  **registration** (actually buying it), payment, and source-download actions remain
+  fully simulated in every run option — none of them are reachable from the browser
+  at all, by design (see "Domain registration" below for why).
+- Clicking **Publish** checks the project's REAL stage (via the existing
+  `/api/projects/<slug>/status`) when a real backend project exists, and reports it
+  honestly — a freshly-generated draft will say so and name the real stage, rather
+  than pretending to go live. It only shows as genuinely "Live" when the project has
+  actually reached the `Deployed` stage, which only happens if the owner ran
+  `./factory deploy` themselves, directly — never reachable from the browser, for the
+  same no-authentication reason domain registration isn't. Falls back to the prior
+  simulated toggle when there's no real backend project to check.
 - No credentials belong in this directory. The Anthropic API key used by
   `/api/generate` and the Vercel token used by domain checks live server-side only
   (environment variable or `.env` at the factory root) — the browser never sees them.
