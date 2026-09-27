@@ -308,8 +308,29 @@ def vercel_link_error(project_directory):
     return True, None
 
 
+def load_submodule_paths():
+    """Return the set of paths declared in .gitmodules, if any."""
+    gitmodules = FACTORY_ROOT / ".gitmodules"
+    paths = set()
+    if not gitmodules.is_file():
+        return paths
+    try:
+        text = gitmodules.read_text(encoding="utf-8")
+    except OSError:
+        return paths
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("path"):
+            _, _, value = line.partition("=")
+            value = value.strip()
+            if value:
+                paths.add(value)
+    return paths
+
+
 def check_projects(results):
     projects_root = FACTORY_ROOT / "projects"
+    submodule_paths = load_submodule_paths()
     try:
         entries = sorted(
             (path for path in projects_root.iterdir() if not path.name.startswith(".")),
@@ -326,6 +347,7 @@ def check_projects(results):
 
     valid_projects = 0
     linked_projects = 0
+    skipped_submodules = 0
     for project_directory in entries:
         name = project_directory.name
         project_errors = []
@@ -334,6 +356,14 @@ def check_projects(results):
             continue
         if not project_directory.is_dir():
             results.failed(f"Unexpected item in projects/: {name} is not a directory")
+            continue
+
+        if f"projects/{name}" in submodule_paths and not any(project_directory.iterdir()):
+            results.info(
+                f"Project {name}: registered git submodule not checked out here "
+                "(see .gitmodules); skipping structural checks"
+            )
+            skipped_submodules += 1
             continue
 
         missing_directories = [
@@ -379,10 +409,11 @@ def check_projects(results):
         else:
             valid_projects += 1
 
-    if valid_projects == len(entries):
+    checked_projects = len(entries) - skipped_submodules
+    if checked_projects and valid_projects == checked_projects:
         results.passed(f"Projects: all {valid_projects} project scaffold(s) are structurally complete")
     elif valid_projects:
-        results.passed(f"Projects: {valid_projects} of {len(entries)} project scaffold(s) are structurally complete")
+        results.passed(f"Projects: {valid_projects} of {checked_projects} project scaffold(s) are structurally complete")
 
     if linked_projects:
         results.passed(f"Vercel links: {linked_projects} valid project link(s)")
