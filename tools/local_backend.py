@@ -81,8 +81,16 @@ SECURITY_HEADERS = (
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; "
         "font-src 'self' https://fonts.gstatic.com https://unpkg.com; "
         "img-src 'self' data:; "
-        "connect-src 'self'; "
-        "upgrade-insecure-requests",
+        "connect-src 'self'",
+        # No 'upgrade-insecure-requests': this server only ever speaks plain
+        # HTTP on loopback (see main()'s bind-address check) and never runs
+        # behind TLS. Chrome quietly exempts 127.0.0.1/localhost from that
+        # directive's upgrade, treating loopback as already a secure
+        # context, but Safari does not — it upgrades every sub-resource
+        # request (support.js, styles.css, _ds_bundle.js, images) to https,
+        # which then fails with a TLS error since nothing here serves HTTPS,
+        # leaving the page's own JS/CSS entirely unloaded. Never re-add this
+        # directive unless this server starts terminating TLS itself.
     ),
     ("X-Content-Type-Options", "nosniff"),
     ("X-Frame-Options", "DENY"),
