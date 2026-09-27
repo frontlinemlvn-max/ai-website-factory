@@ -46,4 +46,4 @@ Production requests fail closed if Upstash is missing. Local `NODE_ENV !== produ
 
 ## Static hosting headers
 
-Copy `templates/security/vercel.json` to a project that deploys on Vercel without Next.js middleware. Tighten `style-src` / `font-src` if the site does not load Google Fonts.
+Copy `templates/security/vercel.json` into the deployment root of a project that deploys on Vercel without Next.js middleware — for factory projects that is `src/`, where the `.vercel` link lives. Vercel ignores a `vercel.json` outside the directory it deploys from, so a copy at the project root silently sends no headers. Tighten `style-src` / `font-src` if the site does not load Google Fonts.

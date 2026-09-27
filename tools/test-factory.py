@@ -455,6 +455,8 @@ def run_suite(suite):
         require((suite.project / "PROJECT-BRIEF.md").is_file(), "project brief was not created")
         require((suite.project / ".env.example").is_file(), "project env template was not created")
         require((suite.project / ".gitignore").is_file(), "project gitignore was not created")
+        require((suite.project / "src" / "vercel.json").is_file(), "security headers config was not created in the deploy root")
+        require(not (suite.project / "vercel.json").exists(), "security headers config was created outside the deploy root, where Vercel ignores it")
 
     suite.case("create builds the standard project scaffold", create_case)
     suite.case(
