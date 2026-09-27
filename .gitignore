@@ -12,6 +12,7 @@
 credentials.json
 secrets.json
 service-account.json
+.domain-contact.json
 *.pem
 *.p12
 *.pfx

@@ -16,8 +16,8 @@ import sys
 import tempfile
 import time
 from types import SimpleNamespace
-from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 
 FACTORY_ROOT = Path(__file__).resolve().parent.parent
@@ -196,7 +196,7 @@ def write_text(path, content, executable=False):
 
 def copy_factory(destination):
     ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
-    for name in ("agents", "documentation", "templates", "tools", "workflows"):
+    for name in ("agents", "documentation", "templates", "tools", "workflows", "frontend"):
         source = FACTORY_ROOT / name
         shutil.copytree(source, destination / name, symlinks=True, ignore=ignore)
     for name in ("factory", "CLAUDE.md", "README.md", ".env.example"):
@@ -977,6 +977,252 @@ def run_suite(suite):
         )
 
     suite.case("create rejects an unknown website type", invalid_website_type_case)
+
+    def local_backend_case():
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+        base = f"http://127.0.0.1:{port}"
+
+        # Never let a real key from the developer's shell reach this test: it
+        # must stay fully offline and never contact Anthropic, Vercel's
+        # registrar API, or trigger any real, paid call.
+        no_external_key_environment = dict(suite.environment)
+        no_external_key_environment.pop("ANTHROPIC_API_KEY", None)
+        no_external_key_environment.pop("VERCEL_TOKEN", None)
+        no_external_key_environment.pop("VERCEL_TEAM_ID", None)
+        no_external_key_environment.pop("SQUARE_ACCESS_TOKEN", None)
+        no_external_key_environment.pop("SQUARE_LOCATION_ID", None)
+        no_external_key_environment.pop("SQUARE_ENVIRONMENT", None)
+
+        process = subprocess.Popen(
+            [str(suite.factory), "frontend", str(port)],
+            cwd=suite.root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=no_external_key_environment,
+        )
+
+        def request(method, path, payload=None):
+            data = json.dumps(payload).encode("utf-8") if payload is not None else None
+            req = Request(base + path, data=data, method=method)
+            if data is not None:
+                req.add_header("Content-Type", "application/json")
+            try:
+                with urlopen(req, timeout=2) as response:
+                    return response.status, json.loads(response.read().decode("utf-8"))
+            except HTTPError as error:
+                return error.code, json.loads(error.read().decode("utf-8"))
+
+        try:
+            deadline = time.monotonic() + 8
+            ready = False
+            while time.monotonic() < deadline:
+                if process.poll() is not None:
+                    break
+                try:
+                    status, body = request("GET", "/api/health")
+                    ready = status == 200 and body.get("status") == "ok"
+                    if ready:
+                        break
+                except (URLError, TimeoutError, OSError):
+                    time.sleep(0.05)
+
+            if not ready:
+                output = process.communicate(timeout=3)[0] if process.poll() is None else ""
+                raise TestFailure(f"local backend did not become healthy\n{output[-1200:]}")
+
+            with urlopen(base + "/", timeout=2) as response:
+                index_status = response.status
+                index_body = response.read().decode("utf-8")
+            require(index_status == 200, "backend did not serve the frontend index page")
+            require("Website Factory App" in index_body, "backend served unexpected content at /")
+
+            status, body = request(
+                "POST",
+                "/api/projects",
+                {
+                    "name": "Backend Test Cafe",
+                    "brief": "A test business created by the isolated suite.",
+                    "who": ["Local walk-ins"],
+                    "action": "Book a slot",
+                    "extras": ["Price list"],
+                },
+            )
+            require(status == 201, f"project creation failed: {status} {body}")
+            require(body.get("slug") == "backend-test-cafe", f"unexpected slug: {body}")
+
+            brief_file = suite.root / "projects" / "backend-test-cafe" / "PROJECT-BRIEF.md"
+            require(brief_file.is_file(), "backend did not create a real project via init-project.sh")
+            brief_text = brief_file.read_text(encoding="utf-8")
+            require(
+                "Customer-Submitted Intake (unverified)" in brief_text and "Backend Test Cafe" in brief_text,
+                "backend did not append the customer intake summary to the brief",
+            )
+
+            status, body = request("GET", "/api/projects/backend-test-cafe/status")
+            require(status == 200, f"status lookup failed: {status} {body}")
+            require(body.get("stage") == "Intake", f"unexpected stage: {body}")
+
+            status, body = request("POST", "/api/projects", {"name": "Backend Test Cafe"})
+            require(status == 409, f"duplicate project creation should be rejected: {status} {body}")
+
+            status, body = request("GET", "/api/projects/does-not-exist/status")
+            require(status == 404, f"missing project status should 404: {status} {body}")
+
+            status, body = request("GET", "/api/projects/..%2f..%2fetc/status")
+            require(status == 400, f"path-traversal slug should be rejected: {status} {body}")
+
+            status, body = request("POST", "/api/projects", {"name": "!!!"})
+            require(status == 400, f"unslugifiable name should be rejected: {status} {body}")
+
+            status, body = request("POST", "/api/projects", {})
+            require(status == 400, f"missing name should be rejected: {status} {body}")
+
+            # /api/generate must fail closed (never fabricate copy) when no
+            # ANTHROPIC_API_KEY is configured, which is guaranteed above. This
+            # first call is request 1 of the endpoint's 5-per-minute limit.
+            status, body = request("POST", "/api/generate", {"name": "Test Cafe", "brief": "coffee"})
+            require(status == 503, f"generate without a configured key should fail closed: {status} {body}")
+            require(
+                "ANTHROPIC_API_KEY" in (body.get("error") or ""),
+                f"unconfigured-key error should name the required variable: {body}",
+            )
+
+            # local_backend.py limits /api/generate to 5 requests/minute; the
+            # call above was request 1, so 4 more (requests 2-5) should still
+            # be allowed through to the fail-closed check, and the 6th must
+            # be rate-limited instead.
+            for _ in range(4):
+                status, _ = request("POST", "/api/generate", {"name": "x"})
+                require(status == 503, "expected requests within the limit to still reach the fail-closed check")
+            status, body = request("POST", "/api/generate", {"name": "x"})
+            require(status == 429, f"generate should apply its own strict rate limit: {status} {body}")
+
+            # Providing 'copy' directly (without needing a real Anthropic call)
+            # exercises the draft-site renderer, including HTML-escaping of a
+            # deliberately malicious payload.
+            status, body = request(
+                "POST",
+                "/api/projects",
+                {
+                    "name": "Draft Site Cafe",
+                    "copy": {
+                        "kicker": "Fresh",
+                        "title": "<script>alert(1)</script>",
+                        "body": "<img src=x onerror=alert(2)>",
+                        "ctaLabel": "Order now",
+                        "nav": [{"label": "Menu"}, {"label": "About"}],
+                        "services": [{"title": "<svg onload=alert(3)>", "body": "test", "price": "$1"}],
+                        "closeTitle": "Come by",
+                        "closeNote": "Open daily.",
+                        "palette": {"accent": "javascript:alert(4)"},
+                    },
+                },
+            )
+            require(status == 201, f"project creation with copy failed: {status} {body}")
+            require(body.get("draftSiteGenerated") is True, f"expected a draft site to be generated: {body}")
+
+            site_file = suite.root / "projects" / "draft-site-cafe" / "src" / "index.html"
+            require(site_file.is_file(), "draft site index.html was not written")
+            site_html = site_file.read_text(encoding="utf-8")
+            # The attribute text (e.g. "onerror=alert(2)") legitimately survives
+            # as inert escaped text content — html.escape() only neutralizes the
+            # surrounding angle brackets, which is what actually matters here.
+            require("<script>alert(1)</script>" not in site_html, "draft site did not escape a script tag payload")
+            require("<img src=x onerror=alert(2)>" not in site_html, "draft site left an executable <img onerror> tag unescaped")
+            require("<svg onload=alert(3)>" not in site_html, "draft site left an executable <svg onload> tag unescaped")
+            require("javascript:alert(4)" not in site_html, "draft site accepted an unsafe palette color value")
+            require("&lt;script&gt;" in site_html, "expected the escaped title to still appear in the page")
+            require("onerror=alert(2)" in site_html, "expected the neutralized payload text to still render as inert content")
+            shutil.rmtree(suite.root / "projects" / "draft-site-cafe", ignore_errors=True)
+
+            # /api/domains/check must fail closed (never fabricate
+            # availability/price) when no VERCEL_TOKEN is configured, which
+            # is guaranteed by no_external_key_environment above.
+            status, body = request("GET", "/api/domains/check?name=example.com")
+            require(status == 503, f"domain check without a configured token should fail closed: {status} {body}")
+            require(
+                "VERCEL_TOKEN" in (body.get("error") or ""),
+                f"unconfigured-token error should name the required variable: {body}",
+            )
+
+            status, body = request("GET", "/api/domains/check?name=not_a_valid_domain")
+            require(status == 503, f"format validation runs after the token check: {status} {body}")
+
+            # /api/checkout must fail closed (never create a real order or
+            # imply a checkout is available) when Square isn't configured,
+            # which is guaranteed by no_external_key_environment above.
+            status, body = request("POST", "/api/checkout", {"plan": "once"})
+            require(status == 503, f"checkout without Square configured should fail closed: {status} {body}")
+            require(
+                "SQUARE_ACCESS_TOKEN" in (body.get("error") or ""),
+                f"unconfigured-checkout error should name the required variable: {body}",
+            )
+
+            status, body = request("GET", "/api/checkout/verify?orderId=abc123")
+            require(status == 503, f"verify without Square configured should fail closed: {status} {body}")
+        finally:
+            if process.poll() is None:
+                process.terminate()
+            try:
+                process.communicate(timeout=3)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.communicate(timeout=3)
+            shutil.rmtree(suite.root / "projects" / "backend-test-cafe", ignore_errors=True)
+
+    suite.case(
+        "local backend serves the frontend, a validated project API, and fail-closed generation",
+        local_backend_case,
+    )
+
+    def buy_domain_safety_case():
+        # Every path here must be rejected before any real Vercel call or
+        # spend could occur — this test never provides a valid token, contact
+        # file, or reaches the confirmation stage with correct arguments.
+        #
+        # suite.run()'s `environment` kwarg is MERGED onto the developer's
+        # real environment (dict.update()), not a replacement — an inherited
+        # real VERCEL_TOKEN would survive a naive {} override. Explicitly set
+        # both to empty strings so the effective value is always falsy,
+        # regardless of what the developer's own shell has exported.
+        no_vercel = {"VERCEL_TOKEN": "", "VERCEL_TEAM_ID": ""}
+        with_fake_token = {"VERCEL_TOKEN": "fake-test-token", "VERCEL_TEAM_ID": ""}
+
+        result = suite.run("buy-domain", PROJECT_NAME, "example.com", "--dry-run", environment=no_vercel)
+        suite.expect(result, 1, "VERCEL_TOKEN is not set")
+
+        result = suite.run(
+            "buy-domain", "does-not-exist-project", "example.com", "--dry-run", environment=with_fake_token,
+        )
+        suite.expect(result, 1, "does not exist")
+
+        result = suite.run(
+            "buy-domain", PROJECT_NAME, "not_a_valid_domain", "--dry-run", environment=with_fake_token,
+        )
+        suite.expect(result, 1, "not a valid domain name")
+
+        result = suite.run(
+            "buy-domain", PROJECT_NAME, "example.com", "--confirm", "WRONG", "--expected-price", "12.99",
+            environment=no_vercel,
+        )
+        suite.expect(result, 1, "confirmation must be exactly 'PURCHASE'")
+
+        # Correct confirmation, but still no VERCEL_TOKEN and no contact
+        # file: must stop before any purchase, never reach the network.
+        result = suite.run(
+            "buy-domain", PROJECT_NAME, "example.com", "--confirm", "PURCHASE", "--expected-price", "12.99",
+            environment=no_vercel,
+        )
+        suite.expect(result, 1, "VERCEL_TOKEN is not set")
+        require(
+            "orderId" not in result.output and "Domain registered" not in result.output,
+            "buy-domain must never report success without a real token",
+        )
+
+    suite.case("buy-domain rejects every unsafe path before any purchase could occur", buy_domain_safety_case)
 
 
 def main():

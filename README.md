@@ -224,6 +224,102 @@ From the factory root, start a safe local preview with:
 
 The command serves `projects/factory-demo/src` at `http://127.0.0.1:8743/` with XSS/CSP headers, path checks, and loopback-only binding. It keeps running until you press `Ctrl-C`. To use another port, add it as the final argument (for example, `./factory preview factory-demo 9000`).
 
+## Customer frontend prototype
+
+The Claude Design customer-facing prototype is isolated in `frontend/`; it does not
+replace the factory CLI. Two ways to run it:
+
+**Static only** (no project creation, everything simulated):
+
+```bash
+cd /Users/brandingbadge/Documents/ai-website-factory/frontend
+python3 -m http.server 5173 --bind 127.0.0.1
+```
+
+**With the local backend** (creates and reads real factory projects):
+
+```bash
+./factory frontend
+```
+
+Serves `frontend/` and a small JSON API from the same origin and port
+(default 5173; pass a port to use another one, e.g. `./factory frontend 9000`):
+
+- `GET /api/health`
+- `POST /api/projects` — validates the submitted name, derives a project slug, and
+  calls the existing `tools/init-project.sh` to create it (no scaffolding logic is
+  duplicated), then appends the submitted intake fields to the new
+  `PROJECT-BRIEF.md` as an unverified summary for human review.
+- `GET /api/projects/<slug>/status` — reads the project's `PROJECT-STATUS.md`.
+- `POST /api/generate` — calls the real Anthropic API server-side to write home-page
+  copy from the submitted brief. Requires `ANTHROPIC_API_KEY` (environment or a
+  `.env` file at the factory root; see `.env.example`) — fails closed with a clear
+  503 rather than fabricating output when it's not set. Limited to 5 requests/minute
+  per IP, since each call costs real money.
+- `POST /api/checkout` — creates a real Square hosted Checkout link for the one-time
+  $39 CAD website export. Requires `SQUARE_ACCESS_TOKEN` and `SQUARE_LOCATION_ID`
+  (environment or `.env`; see `.env.example`) — fails closed with a clear 503 when
+  not set. `SQUARE_ENVIRONMENT` defaults to `sandbox` (no real charges) and must be
+  explicitly set to `production` to accept real payments. Only the one-time export
+  plan is real; requesting checkout for the recurring "Studio" plan is rejected with
+  a 400, since a real subscription needs a user-account system this prototype
+  doesn't have. Limited to 10 requests/minute per IP.
+- `GET /api/checkout/verify` — after the customer returns from Square's hosted
+  checkout, cross-checks the order server-side against Square's Orders API (state,
+  amount, and location) before the frontend is allowed to unlock the export. The
+  browser's return URL is never trusted on its own.
+
+When run this way, finishing the frontend's onboarding wizard creates a real project
+under `projects/` and shows its live stage in a small "Factory record" readout. When
+real copy was obtained (from the API above), it's also rendered into an actual
+`src/index.html` for that project — a single-page static draft with a visible
+"unverified" banner, never a fabricated finished site, and the project's
+`PROJECT-BRIEF.md` notes that it still needs the full factory pipeline before launch.
+If the backend isn't running, `/api/generate` isn't configured, or generation
+otherwise fails, the page fails silently and keeps its fully simulated/local-draft
+behavior — no functionality is lost, and no fabricated content is ever written to
+disk. The domain step's "Check availability" also becomes real when `VERCEL_TOKEN` is
+set, using Vercel's Domains Registrar API — but **registering (buying) a domain is
+never reachable from the browser**, since this server has no user authentication that
+could safely gate who is allowed to spend money; that's a deliberate separate CLI
+step (see below). Clicking "Publish" checks the project's real stage via the existing
+status endpoint and reports it honestly (it will say so if the draft still needs the
+full review pipeline) rather than fabricating a "live" result — it only shows as live
+once the project has actually reached `Deployed`, which requires the owner to run
+`./factory deploy` themselves; that command is unaffected and unchanged by this. **No
+part of publishing/deployment is triggerable from the browser.** The one-time export
+purchase uses real Square Checkout (above) when configured; the recurring "Studio"
+subscription remains explicitly simulated in every mode, since it would require a
+real user-account system. See `frontend/README.md` for the full boundary and the
+export technology.
+
+## Register a domain
+
+Real domain registration is a separate, explicitly-confirmed CLI command — never
+something a web request can trigger:
+
+```bash
+./factory buy-domain client-website example.com --dry-run
+```
+
+Checks real availability and price via Vercel's Domains Registrar API (requires
+`VERCEL_TOKEN`; read-only, no cost) and confirms a registrant-contact file is ready,
+without registering anything. Once you've reviewed the price and terms it prints:
+
+```bash
+./factory buy-domain client-website example.com --confirm PURCHASE --expected-price 12.99
+```
+
+`--expected-price` must match the current live price (from the dry run) or the
+purchase is refused — this guards against the price changing between the two steps.
+Registrant contact information is read from `.domain-contact.json` at the factory
+root (gitignored, never committed, never printed, treated as a sensitive file by
+`./factory scan-secrets`) — a JSON object with `firstName`, `lastName`, `email`,
+`phone`, `address1`, `city`, `state`, `zip`, `country` (see Vercel's docs for the
+exact format). A successful purchase is recorded in the project's
+`documentation/DEPLOYMENT.md` (domain, order ID, price, date) — never the contact
+details themselves.
+
 ## Scan for secrets
 
 Before committing or during validation, scan the factory or a project for committed `.env` files and high-confidence secret patterns. The scanner reports file paths and pattern classes only; it never prints secret values.
