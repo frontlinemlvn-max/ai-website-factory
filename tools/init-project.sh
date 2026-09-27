@@ -58,8 +58,9 @@ mkdir -p "$PROJECT_DIR/tests"
 mkdir -p "$PROJECT_DIR/reports"
 mkdir -p "$PROJECT_DIR/documentation"
 
+# Vercel deploys from src/ (where the project link lives), so headers config must live there too.
 if [ -f "templates/security/vercel.json" ]; then
-  cp "templates/security/vercel.json" "$PROJECT_DIR/vercel.json"
+  cp "templates/security/vercel.json" "$PROJECT_DIR/src/vercel.json"
 fi
 
 if [ -f ".env.example" ]; then
