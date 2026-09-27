@@ -130,23 +130,28 @@ Run with `./factory frontend` (see `tools/local_backend.py`) and these become re
 
 `index.html` resolves copy first (`window.claude.complete`, then `/api/generate`, then
 a local deterministic draft), then calls `POST /api/projects` with that copy attached.
-When real copy was obtained, the backend also renders it into an actual
-`src/index.html` for the new project — a single-page static draft (see
-`templates/site-draft/index.html.tmpl`), using the AI's suggested palette (with a
-verified-accessible fallback if it's missing or invalid) and every field
-HTML-escaped, since this is untrusted AI-generated content being written into a real
-file that gets served in a browser. The generated page carries a visible "AI-drafted
-pilot, unverified" banner and lists its `nav` suggestions as "planned pages, not yet
-built" rather than fabricating links to pages that don't exist — the project's
-`PROJECT-BRIEF.md` gets a matching note that it still needs the full factory pipeline
-(Architecture, Design, Development, QA, every specialist review) before any of it is
-trustworthy. If copy generation fails, the project is still created — just without an
-auto-generated site — rather than ever writing fabricated content to disk. The
-"Factory record" line shows whether a draft site was generated. Any failure anywhere
-in this chain (backend not running, network error, generation not configured) is
-caught silently and the fully simulated/local-draft experience continues exactly as
-before. Domain purchase, publishing, deployment, and downloads are unaffected either
-way — they stay simulated regardless of which run option is used.
+When real copy was obtained, the backend also renders it into a real, multi-page
+static draft for the new project: `src/index.html` (see
+`templates/site-draft/index.html.tmpl`) plus one real file per nav item the AI wrote
+actual page content for (see `templates/site-draft/page.html.tmpl`) — e.g. About,
+Services, Contact, whatever fits the business — all cross-linked by a shared nav bar
+(the current page renders as plain text, not a link). A nav item the AI didn't write
+real body content for is simply not built as a page, and two labels that would
+collide on the same filename (e.g. "About" and "about!") are deduplicated
+(`about.html`, `about-2.html`) rather than one overwriting the other. Every field is
+HTML-escaped on every page, since this is untrusted AI-generated content being
+written into real files that get served in a browser, and each page carries the same
+visible "AI-drafted pilot, unverified" banner — the project's `PROJECT-BRIEF.md` gets
+a matching note (naming how many pages were generated) that it still needs the full
+factory pipeline (Architecture, Design, Development, QA, every specialist review)
+before any of it is trustworthy. If copy generation fails, the project is still
+created — just without an auto-generated site — rather than ever writing fabricated
+content to disk. The "Factory record" line shows whether a draft site was generated.
+Any failure anywhere in this chain (backend not running, network error, generation
+not configured) is caught silently and the fully simulated/local-draft experience
+continues exactly as before. Domain purchase, publishing, deployment, and downloads
+are unaffected either way — they stay simulated regardless of which run option is
+used.
 
 ## Accounts and payments: both plans real, accounts scoped to Studio only
 
@@ -196,11 +201,11 @@ its billing.
 ## Further integration boundary
 
 Keep this prototype as the presentation layer. Real AI copy generation, a real
-single-page draft site, real domain availability/pricing, real accounts, and real
+multi-page draft site, real domain availability/pricing, real accounts, and real
 payment for both plans now run server-side (see above) using this same pattern; if
-multi-page generation or deployment are added later, extend it the same way — a
-server-side API between the browser and any provider credentials, never provider
-keys or factory logic moved into browser code. A generated draft is
+deployment is added later, extend it the same way — a server-side API between the
+browser and any provider credentials, never provider keys or factory logic moved
+into browser code. A generated draft is
 intentionally not a finished, launchable site: it still needs to go through the same
 Architecture → Design → Development → QA → specialist-review pipeline as any other
 factory project (see `yyz-caregivers` for what that looks like end to end) before any

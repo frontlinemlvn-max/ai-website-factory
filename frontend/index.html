@@ -888,11 +888,14 @@ class Component extends DCLogic {
       "Plain, matter-of-fact voice. No exclamation marks, no buzzwords, no em dashes.\n\n" +
       "Reply with ONLY a JSON object, no code fence, in this exact shape:\n" +
       '{"kicker":"3-6 words, e.g. a location or specialism","title":"headline, max 12 words","body":"2 sentences, max 40 words",' +
-      '"ctaLabel":"2-4 words matching the main action","nav":["3 one-word or two-word page names"],' +
+      '"ctaLabel":"2-4 words matching the main action",' +
+      '"nav":[{"label":"one or two words, e.g. About or Services","body":"2-3 sentences, max 45 words, real copy for THIS page only"}],' +
       '"services":[{"title":"2-4 words","body":"1 sentence, max 22 words","price":"short price or scope line"}],' +
       '"closeTitle":"4-8 words inviting the main action","closeNote":"1 short line, max 16 words",' +
       '"palette":{"paper":"#rrggbb very light page background","ink":"#rrggbb near-black text","accent":"#rrggbb brand accent","band":"#rrggbb light tinted band"}}\n' +
-      "Give exactly 3 services, drawn from what they said they do. " +
+      "Give exactly 3 services, drawn from what they said they do. Give exactly 3 nav pages (e.g. About, Services, Contact, Hours — pick what fits this business), " +
+      "each with its own real paragraph of copy for that specific page, not a repeat of the home page. Never invent specific facts like phone numbers, " +
+      "street addresses, or exact hours — describe what belongs on the page in general, inviting terms instead. " +
       "The palette must suit this industry (a tax firm is not a bakery): paper and band stay very light, ink stays dark enough to read at 4.5:1, accent carries the brand.";
 
     const applyGenerated = (data) => {
@@ -903,7 +906,11 @@ class Component extends DCLogic {
         title: data.title || "",
         body: data.body || "",
         ctaLabel: data.ctaLabel || "",
-        nav: (Array.isArray(data.nav) ? data.nav : []).slice(0, 3).map(l => ({ label: String(l) })),
+        nav: (Array.isArray(data.nav) ? data.nav : []).slice(0, 3).map(item =>
+          (item && typeof item === "object")
+            ? { label: String(item.label || ""), body: String(item.body || "") }
+            : { label: String(item || ""), body: "" }
+        ),
         services: svc.map(x => ({ title: x.title, body: x.body || "", price: x.price || "" })),
         closeTitle: data.closeTitle || "",
         closeNote: data.closeNote || "",

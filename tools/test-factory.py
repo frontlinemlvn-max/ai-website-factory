@@ -1109,8 +1109,14 @@ def run_suite(suite):
             require(status == 429, f"generate should apply its own strict rate limit: {status} {body}")
 
             # Providing 'copy' directly (without needing a real Anthropic call)
-            # exercises the draft-site renderer, including HTML-escaping of a
-            # deliberately malicious payload.
+            # exercises the draft-site renderer, including real multi-page
+            # generation and HTML-escaping of a deliberately malicious
+            # payload on both the home page and a secondary nav page. Exactly
+            # 3 nav items (matching MAX_NAV_PAGES, so the slice limit doesn't
+            # also mask the effect being tested): "Empty" has no body and
+            # must NOT become a page; "Menu" and "menu!" deliberately slugify
+            # to the same value and must be deduplicated, not overwrite each
+            # other.
             status, body = request(
                 "POST",
                 "/api/projects",
@@ -1121,7 +1127,11 @@ def run_suite(suite):
                         "title": "<script>alert(1)</script>",
                         "body": "<img src=x onerror=alert(2)>",
                         "ctaLabel": "Order now",
-                        "nav": [{"label": "Menu"}, {"label": "About"}],
+                        "nav": [
+                            {"label": "Empty", "body": ""},
+                            {"label": "Menu", "body": "What's on the menu today."},
+                            {"label": "menu!", "body": "<svg onload=alert(5)>A second, colliding menu label."},
+                        ],
                         "services": [{"title": "<svg onload=alert(3)>", "body": "test", "price": "$1"}],
                         "closeTitle": "Come by",
                         "closeNote": "Open daily.",
@@ -1131,8 +1141,12 @@ def run_suite(suite):
             )
             require(status == 201, f"project creation with copy failed: {status} {body}")
             require(body.get("draftSiteGenerated") is True, f"expected a draft site to be generated: {body}")
+            # index.html + Menu + menu! (deduplicated); "Empty" is skipped
+            # since it has no body content to build a page from.
+            require(body.get("draftPagesGenerated") == 3, f"expected 3 generated pages: {body}")
 
-            site_file = suite.root / "projects" / "draft-site-cafe" / "src" / "index.html"
+            src_dir = suite.root / "projects" / "draft-site-cafe" / "src"
+            site_file = src_dir / "index.html"
             require(site_file.is_file(), "draft site index.html was not written")
             site_html = site_file.read_text(encoding="utf-8")
             # The attribute text (e.g. "onerror=alert(2)") legitimately survives
@@ -1144,6 +1158,29 @@ def run_suite(suite):
             require("javascript:alert(4)" not in site_html, "draft site accepted an unsafe palette color value")
             require("&lt;script&gt;" in site_html, "expected the escaped title to still appear in the page")
             require("onerror=alert(2)" in site_html, "expected the neutralized payload text to still render as inert content")
+            require('<a href="menu.html">Menu</a>' in site_html, f"expected the home page nav to link to the real built page:\n{site_html}")
+            require(
+                "Empty" not in site_html.split('aria-label="Primary"')[1].split("</nav>")[0],
+                "the empty-body nav item should not appear as a built page link",
+            )
+
+            menu_file = src_dir / "menu.html"
+            menu_2_file = src_dir / "menu-2.html"
+            require(menu_file.is_file(), "the Menu nav page was not written")
+            require(menu_2_file.is_file(), "the colliding 'menu!' slug should be deduplicated to menu-2.html, not dropped")
+            require(
+                not (src_dir / "empty.html").exists(),
+                "the empty-body nav item should not have produced a page file",
+            )
+
+            menu_2_html = menu_2_file.read_text(encoding="utf-8")
+            require("<svg onload=alert(5)>" not in menu_2_html, "a secondary page left an executable <svg onload> tag unescaped")
+            require("onload=alert(5)" in menu_2_html, "expected the neutralized payload text to still render on the secondary page")
+            require(
+                '<span class="nav-current">' in menu_2_html and 'href="index.html">Home</a>' in menu_2_html,
+                "expected the secondary page's own nav to mark itself current and link back home",
+            )
+
             shutil.rmtree(suite.root / "projects" / "draft-site-cafe", ignore_errors=True)
 
             # /api/domains/check must fail closed (never fabricate
