@@ -124,8 +124,49 @@
     });
   }
 
+  function initAnnouncementBar() {
+    var bar = document.getElementById('announcement-bar');
+    if (!bar) return;
+    var dismissBtn = bar.querySelector('.announcement-bar__dismiss');
+    if (!dismissBtn) return;
+
+    dismissBtn.addEventListener('click', function () {
+      bar.hidden = true;
+    });
+  }
+
+  // NOTE: No email service provider is connected yet (see PROJECT-STATUS.md
+  // decisions for this pass). This handler performs real client-side
+  // validation and a real inline confirmation state, but no request is ever
+  // sent anywhere. Wire the form's submit handler to the chosen ESP
+  // (e.g. Mailchimp, Klaviyo) before any real launch.
+  function initNewsletterForm() {
+    var form = document.getElementById('newsletter-form');
+    if (!form) return;
+
+    var emailField = document.getElementById('newsletter-email');
+    var statusEl = document.getElementById('newsletter-status');
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+
+      var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailPattern.test(emailField.value.trim())) {
+        statusEl.textContent = 'Enter a valid email address.';
+        emailField.focus();
+        return;
+      }
+
+      // Simulated confirmation — no data is transmitted or stored.
+      statusEl.textContent = "Thanks — you're on the list. [Placeholder confirmation — email provider integration pending.]";
+      form.reset();
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initNavToggle();
     initContactForm();
+    initAnnouncementBar();
+    initNewsletterForm();
   });
 })();

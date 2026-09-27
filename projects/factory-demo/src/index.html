@@ -17,6 +17,13 @@
 <body>
   <a class="skip-link" href="#main-content">Skip to main content</a>
 
+  <div class="announcement-bar" id="announcement-bar">
+    <div class="container announcement-bar__row">
+      <p class="announcement-bar__text">[Placeholder] Free shipping on orders over $75 — final policy pending real brand input.</p>
+      <button class="announcement-bar__dismiss" type="button" aria-label="Dismiss announcement">&times;</button>
+    </div>
+  </div>
+
   <header class="site-header">
     <div class="container site-header__bar">
       <a class="brand-wordmark" href="index.html">SVTIVA Lifestyle</a>
@@ -38,26 +45,77 @@
   </header>
 
   <main id="main-content" tabindex="-1">
+
+    <!-- Hero -->
     <section class="hero">
       <div class="container hero__grid">
         <div>
           <p class="hero__eyebrow">Modern athleisure &middot; Made to move</p>
-          <h1>Designed for movement. Made for everyday.</h1>
+          <h1 class="hero__heading">Designed for movement. Made for everyday.</h1>
           <p class="text-block">SVTIVA Lifestyle is a modern athleisure and lifestyle brand built around clean design and considered essentials. [Placeholder brand copy — final messaging pending real brand input.]</p>
           <div class="hero__cta-row">
-            <a class="btn btn--primary" href="contact.html">Get in Touch</a>
-            <a class="btn btn--secondary" href="shop.html">Shop Collections</a>
+            <a class="btn btn--primary" href="shop.html">Shop Now</a>
+            <a class="btn btn--secondary" href="lifestyle.html">Explore the Lifestyle</a>
           </div>
         </div>
         <div class="placeholder-image placeholder-image--tall" role="img" aria-label="Placeholder hero image: SVTIVA Lifestyle editorial photography">
-          Placeholder hero image<br>(editorial photography)
+          [Placeholder] Editorial hero photography
         </div>
       </div>
     </section>
 
-    <section>
+    <!-- Shop / Explore tiles -->
+    <section class="shop-tiles" aria-labelledby="shop-tiles-heading">
       <div class="container">
-        <h2>Why SVTIVA</h2>
+        <h2 id="shop-tiles-heading" class="visually-hidden">Shop by category</h2>
+        <div class="tile-grid">
+          <a class="tile" href="shop.html">
+            <span class="tile__image" role="img" aria-label="Placeholder category image: New Arrivals">[Placeholder]</span>
+            <span class="tile__label">New Arrivals</span>
+          </a>
+          <a class="tile" href="shop.html">
+            <span class="tile__image" role="img" aria-label="Placeholder category image: Women">[Placeholder]</span>
+            <span class="tile__label">Women</span>
+          </a>
+          <a class="tile" href="shop.html">
+            <span class="tile__image" role="img" aria-label="Placeholder category image: Men">[Placeholder]</span>
+            <span class="tile__label">Men</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Featured collections -->
+    <section aria-labelledby="collections-heading">
+      <div class="container">
+        <div class="section-heading">
+          <h2 id="collections-heading">Featured Collections</h2>
+          <p class="text-block">[Placeholder] Collection names and imagery below are structural placeholders — real collections pending.</p>
+        </div>
+        <div class="card-grid card-grid--3">
+          <div class="collection-card">
+            <div class="placeholder-image" role="img" aria-label="Placeholder collection image 1">[Placeholder]</div>
+            <h3>[Placeholder Collection 01]</h3>
+            <a class="text-link" href="shop.html">View Collection &rarr;</a>
+          </div>
+          <div class="collection-card">
+            <div class="placeholder-image" role="img" aria-label="Placeholder collection image 2">[Placeholder]</div>
+            <h3>[Placeholder Collection 02]</h3>
+            <a class="text-link" href="shop.html">View Collection &rarr;</a>
+          </div>
+          <div class="collection-card">
+            <div class="placeholder-image" role="img" aria-label="Placeholder collection image 3">[Placeholder]</div>
+            <h3>[Placeholder Collection 03]</h3>
+            <a class="text-link" href="shop.html">View Collection &rarr;</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Brand pillars -->
+    <section aria-labelledby="why-svtiva-heading">
+      <div class="container">
+        <h2 id="why-svtiva-heading">Why SVTIVA</h2>
         <div class="card-grid card-grid--3">
           <div class="card">
             <h3>Minimalist Design</h3>
@@ -75,34 +133,104 @@
       </div>
     </section>
 
-    <section>
+    <!-- Brand / lifestyle story -->
+    <section aria-labelledby="story-heading">
       <div class="container story-section">
         <div class="placeholder-image" role="img" aria-label="Placeholder image: SVTIVA Lifestyle collection">
-          Placeholder image<br>(collection preview)
+          [Placeholder] Collection preview
         </div>
         <div class="text-block">
-          <h2>An editorial take on athleisure.</h2>
+          <h2 id="story-heading">An editorial take on athleisure.</h2>
           <p>[Placeholder] SVTIVA Lifestyle's brand story and philosophy will go here once real content is provided — see the <a href="about.html">About</a> page.</p>
           <p><a href="about.html">Learn more about us &rarr;</a></p>
         </div>
       </div>
     </section>
 
-    <section>
+    <!-- Editorial imagery -->
+    <section class="editorial" aria-labelledby="editorial-heading">
       <div class="container">
-        <div class="cta-band">
-          <div>
-            <h2>Ready to explore the collection?</h2>
-            <p>[Placeholder CTA copy] Reach out with any questions.</p>
-          </div>
-          <a class="btn btn--primary" href="contact.html">Contact Us</a>
+        <h2 id="editorial-heading" class="visually-hidden">Editorial photography</h2>
+        <div class="editorial__grid">
+          <div class="placeholder-image placeholder-image--tall" role="img" aria-label="Placeholder editorial image 1: lifestyle photography">[Placeholder] Editorial photography</div>
+          <div class="placeholder-image placeholder-image--tall" role="img" aria-label="Placeholder editorial image 2: lifestyle photography">[Placeholder] Editorial photography</div>
         </div>
+      </div>
+    </section>
+
+    <!-- Featured products -->
+    <section aria-labelledby="products-heading">
+      <div class="container">
+        <div class="section-heading">
+          <h2 id="products-heading">Featured Products</h2>
+          <p class="text-block">[Placeholder] No real products, pricing, or availability exist yet — cards below are structural placeholders for future SKUs.</p>
+        </div>
+        <div class="product-grid">
+          <div class="product-card">
+            <div class="product-card__image" role="img" aria-label="Placeholder product image 1">[Placeholder]</div>
+            <span class="badge badge--coming-soon">Coming Soon</span>
+            <h3>[Placeholder Product]</h3>
+            <p class="product-card__meta">Details to be announced.</p>
+          </div>
+          <div class="product-card">
+            <div class="product-card__image" role="img" aria-label="Placeholder product image 2">[Placeholder]</div>
+            <span class="badge badge--coming-soon">Coming Soon</span>
+            <h3>[Placeholder Product]</h3>
+            <p class="product-card__meta">Details to be announced.</p>
+          </div>
+          <div class="product-card">
+            <div class="product-card__image" role="img" aria-label="Placeholder product image 3">[Placeholder]</div>
+            <span class="badge badge--coming-soon">Coming Soon</span>
+            <h3>[Placeholder Product]</h3>
+            <p class="product-card__meta">Details to be announced.</p>
+          </div>
+          <div class="product-card">
+            <div class="product-card__image" role="img" aria-label="Placeholder product image 4">[Placeholder]</div>
+            <span class="badge badge--coming-soon">Coming Soon</span>
+            <h3>[Placeholder Product]</h3>
+            <p class="product-card__meta">Details to be announced.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Social / community -->
+    <section class="social" aria-labelledby="social-heading">
+      <div class="container">
+        <div class="section-heading">
+          <h2 id="social-heading">Join the Community</h2>
+          <p class="text-block">[Placeholder] Social account, hashtag, and community photography are not yet available — shown here as generic structural placeholders.</p>
+        </div>
+        <div class="social-grid">
+          <div class="social-grid__item" role="img" aria-label="Placeholder community photo 1">[Placeholder]</div>
+          <div class="social-grid__item" role="img" aria-label="Placeholder community photo 2">[Placeholder]</div>
+          <div class="social-grid__item" role="img" aria-label="Placeholder community photo 3">[Placeholder]</div>
+          <div class="social-grid__item" role="img" aria-label="Placeholder community photo 4">[Placeholder]</div>
+          <div class="social-grid__item" role="img" aria-label="Placeholder community photo 5">[Placeholder]</div>
+          <div class="social-grid__item" role="img" aria-label="Placeholder community photo 6">[Placeholder]</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Newsletter signup -->
+    <section class="newsletter" aria-labelledby="newsletter-heading">
+      <div class="container newsletter__inner">
+        <h2 id="newsletter-heading">Stay in the loop</h2>
+        <p>[Placeholder] Sign up for updates on new arrivals and releases. Email provider is not yet connected — signups are not sent or stored.</p>
+        <form class="newsletter-form" id="newsletter-form" novalidate>
+          <div class="newsletter-form__row">
+            <label class="visually-hidden" for="newsletter-email">Email address</label>
+            <input type="email" id="newsletter-email" name="email" placeholder="you@example.com" required autocomplete="email">
+            <button class="btn btn--primary" type="submit">Sign Up</button>
+          </div>
+          <p class="newsletter-form__status" id="newsletter-status" aria-live="polite"></p>
+        </form>
       </div>
     </section>
   </main>
 
   <footer class="site-footer">
-    <div class="container footer-grid">
+    <div class="container footer-grid footer-grid--with-social">
       <div>
         <h2>SVTIVA Lifestyle</h2>
         <p>Modern athleisure and lifestyle brand. [Placeholder tagline — pending real brand copy.]</p>
@@ -125,6 +253,15 @@
           <li><a href="terms.html">Terms</a></li>
         </ul>
         <p>[Add real contact email]</p>
+      </div>
+      <div>
+        <h2>Follow</h2>
+        <ul class="footer-social">
+          <li>Instagram <span class="footer-social__note">(placeholder)</span></li>
+          <li>TikTok <span class="footer-social__note">(placeholder)</span></li>
+          <li>Pinterest <span class="footer-social__note">(placeholder)</span></li>
+        </ul>
+        <p class="footer-social__disclaimer">[Placeholder — real social profiles pending.]</p>
       </div>
     </div>
     <div class="container footer-bottom">

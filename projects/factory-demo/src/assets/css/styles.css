@@ -25,6 +25,12 @@
   --color-disabled: #A79E93;
   --color-white: #FFFFFF;
 
+  /* Accent (placeholder — no signature brand accent chosen yet.
+     Currently mapped to an existing neutral so the site stays
+     monochrome; swap this single value to introduce a real accent
+     color later without touching every call site. ) */
+  --color-accent: var(--color-rust-700);
+
   /* Typography */
   --font-heading: 'Fraunces', Georgia, 'Times New Roman', serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -692,6 +698,388 @@ section {
   border-top: 1px solid rgba(247, 246, 243, 0.2);
   padding: var(--space-4) 0;
   font-size: 13px;
+}
+
+/* ==========================================================================
+   Announcement bar (homepage)
+   ========================================================================== */
+
+.announcement-bar {
+  background-color: var(--color-brown-900);
+  color: var(--color-white);
+}
+
+.announcement-bar__row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  position: relative;
+}
+
+.announcement-bar__text {
+  margin: 0;
+  font-size: 13px;
+  text-align: center;
+  padding-right: var(--space-6);
+}
+
+@media (min-width: 640px) {
+  .announcement-bar__text { font-size: 14px; }
+}
+
+.announcement-bar__dismiss {
+  position: absolute;
+  right: var(--space-4);
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--color-white);
+  font-size: 20px;
+  line-height: 1;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.announcement-bar[hidden] {
+  display: none;
+}
+
+/* ==========================================================================
+   Hero heading (homepage — larger display size than the global h1)
+   ========================================================================== */
+
+.hero__heading {
+  font-size: clamp(2rem, 4.5vw + 1rem, 3.75rem);
+  line-height: 1.08;
+}
+
+/* ==========================================================================
+   Section heading group (homepage)
+   ========================================================================== */
+
+.section-heading {
+  margin-bottom: var(--space-6);
+}
+
+.section-heading .text-block {
+  margin-top: var(--space-2);
+  color: var(--color-rust-600);
+}
+
+.text-link {
+  display: inline-block;
+  margin-top: var(--space-3);
+  font-weight: 600;
+  color: var(--color-brown-900);
+}
+
+.text-link:hover,
+.text-link:focus-visible {
+  color: var(--color-rust-700);
+}
+
+/* ==========================================================================
+   Shop / explore tiles (homepage)
+   ========================================================================== */
+
+.shop-tiles {
+  padding-top: var(--space-4);
+}
+
+.tile-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .tile-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.tile {
+  display: block;
+  text-decoration: none;
+  color: var(--color-brown-900);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: transform var(--motion-fast);
+}
+
+.tile:hover,
+.tile:focus-visible {
+  transform: translateY(-2px);
+}
+
+.tile__image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-sage-500),
+    var(--color-sage-500) 10px,
+    #8F887C 10px,
+    #8F887C 20px
+  );
+  border: 2px dashed var(--color-brown-900);
+  border-radius: var(--radius-lg);
+  color: var(--color-white);
+  font-size: 13px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.tile__label {
+  display: block;
+  margin-top: var(--space-3);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 18px;
+  text-align: center;
+}
+
+/* ==========================================================================
+   Collection cards (homepage)
+   ========================================================================== */
+
+.collection-card h3 {
+  margin-top: var(--space-4);
+  margin-bottom: 0;
+}
+
+/* ==========================================================================
+   Editorial imagery band (homepage)
+   ========================================================================== */
+
+.editorial__grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .editorial__grid {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-6);
+  }
+}
+
+/* ==========================================================================
+   Featured products (homepage)
+   ========================================================================== */
+
+.product-grid {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .product-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 1024px) {
+  .product-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+.product-card {
+  position: relative;
+  background-color: var(--color-white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-4);
+  transition: box-shadow var(--motion-fast);
+}
+
+.product-card:hover,
+.product-card:focus-within {
+  box-shadow: var(--shadow-md);
+}
+
+.product-card__image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 5;
+  background-color: var(--color-sage-500);
+  border: 2px dashed var(--color-brown-900);
+  border-radius: var(--radius-sm);
+  color: var(--color-white);
+  font-size: 13px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  margin-bottom: var(--space-3);
+}
+
+.product-card h3 {
+  font-size: 16px;
+  margin: var(--space-2) 0 var(--space-1);
+}
+
+.product-card__meta {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-rust-600);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.badge--coming-soon {
+  background-color: var(--color-accent);
+  color: var(--color-white);
+}
+
+/* ==========================================================================
+   Social / community (homepage)
+   ========================================================================== */
+
+.social-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 640px) {
+  .social-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 1024px) {
+  .social-grid { grid-template-columns: repeat(6, 1fr); }
+}
+
+.social-grid__item {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-sage-500),
+    var(--color-sage-500) 10px,
+    #8F887C 10px,
+    #8F887C 20px
+  );
+  border: 2px dashed var(--color-brown-900);
+  border-radius: var(--radius-sm);
+  color: var(--color-white);
+  font-size: 12px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* ==========================================================================
+   Newsletter signup (homepage)
+   ========================================================================== */
+
+.newsletter {
+  background-color: var(--color-brown-900);
+  color: var(--color-white);
+}
+
+.newsletter h2 { color: var(--color-white); }
+
+.newsletter__inner {
+  text-align: center;
+  max-width: 640px;
+}
+
+.newsletter-form {
+  margin-top: var(--space-5);
+}
+
+.newsletter-form__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+@media (min-width: 480px) {
+  .newsletter-form__row {
+    flex-direction: row;
+    justify-content: center;
+  }
+}
+
+.newsletter-form__row input {
+  font-family: var(--font-body);
+  font-size: 16px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-white);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-white);
+  color: var(--color-brown-900);
+  min-height: 44px;
+  width: 100%;
+}
+
+@media (min-width: 480px) {
+  .newsletter-form__row input { width: 280px; }
+}
+
+.newsletter-form__row input:focus-visible {
+  outline: 2px solid var(--color-white);
+  outline-offset: 2px;
+}
+
+.newsletter-form__status {
+  margin: var(--space-3) 0 0;
+  min-height: 20px;
+  font-size: 14px;
+}
+
+/* ==========================================================================
+   Footer social column (homepage)
+   ========================================================================== */
+
+.footer-grid--with-social {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .footer-grid--with-social {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .footer-grid--with-social {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.footer-social {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.footer-social li {
+  margin-bottom: var(--space-2);
+}
+
+.footer-social__note {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.footer-social__disclaimer {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: var(--space-3);
 }
 
 /* ==========================================================================
