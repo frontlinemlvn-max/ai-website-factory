@@ -10,36 +10,54 @@ and port, so the browser never needs cross-origin requests:
   POST /api/projects
   GET  /api/projects/<slug>/status
   POST /api/generate
+  GET  /api/domains/check
+  POST /api/checkout
+  GET  /api/checkout/verify
+  POST /api/auth/signup
+  POST /api/auth/login
+  POST /api/auth/logout
+  GET  /api/auth/me
 
 Project creation and status both delegate to the existing factory
 (tools/init-project.sh and each project's PROJECT-STATUS.md) rather than
 reimplementing scaffolding or workflow logic. /api/generate calls the real
-Anthropic API server-side, so the key never reaches the browser; it reads
-ANTHROPIC_API_KEY from the environment (or a .env file at the factory
-root — see load_dotenv) and fails closed with a clear error when absent,
-rather than silently falling back to fake output. Domain purchase,
-payments, publishing, deployment, and downloads are NOT implemented here —
-the frontend continues to simulate those, as documented in
-frontend/README.md.
+Anthropic API server-side (ANTHROPIC_API_KEY), /api/domains/check calls
+Vercel's Domains Registrar API (VERCEL_TOKEN), and /api/checkout creates a
+real Square-hosted checkout for the one-time export or, for a signed-in
+account, the recurring Studio subscription (SQUARE_ACCESS_TOKEN,
+SQUARE_LOCATION_ID, SQUARE_SUBSCRIPTION_PLAN_VARIATION_ID) — every one of
+these fails closed with a clear error when its credentials are absent,
+rather than silently falling back to fake output. Accounts are real (a
+local SQLite file, .factory-users.db, at the factory root — passwords are
+salted and hashed, never stored or logged in plain text) but exist only to
+gate the Studio subscription; there is no other use of accounts in this
+prototype. Domain purchase, actual deployment, and downloads are NOT
+implemented here — the frontend continues to simulate those, as documented
+in frontend/README.md.
 
 Reuses the same safety posture as tools/preview-server.py: loopback-only
 bind, path-traversal guards, sliding-window rate limiting (tighter for
-/api/generate, since each call costs real money), and standard security
-headers. Never contacts a network service other than the local factory and
-the Anthropic API, and never echoes the API key back to the client or logs.
+routes that cost money or gate accounts), and standard security headers.
+Never contacts a network service other than the local factory, Anthropic,
+Vercel, and Square, and never echoes a credential, password, or session
+token back to the client body or logs.
 """
 
 from collections import deque
 from datetime import datetime, timezone
+from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from string import Template
 import argparse
+import hashlib
 import html
 import json
 import os
 import posixpath
 import re
+import secrets
+import sqlite3
 import subprocess
 import sys
 import time
@@ -124,6 +142,21 @@ CHECKOUT_RATE_LIMIT_MAX_REQUESTS = 10
 # they chose. This must be the only source of truth for what gets charged.
 EXPORT_PRICE_CENTS = 3900
 EXPORT_CURRENCY = "CAD"
+# Same reasoning as EXPORT_PRICE_CENTS above: fixed here, server-side, and
+# must match the price configured on the Square subscription plan variation
+# (SQUARE_SUBSCRIPTION_PLAN_VARIATION_ID) - never taken from the request.
+STUDIO_PRICE_CENTS = 2900
+STUDIO_CURRENCY = "CAD"
+
+AUTH_RATE_LIMIT_WINDOW_SECONDS = 60
+AUTH_RATE_LIMIT_MAX_REQUESTS = 10
+SESSION_COOKIE_NAME = "wf_session"
+SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
+PASSWORD_HASH_ITERATIONS = 200_000
+PASSWORD_SALT_BYTES = 16
+MIN_PASSWORD_LENGTH = 8
+MAX_EMAIL_LENGTH = 254
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def load_dotenv(path):
@@ -466,6 +499,193 @@ def verify_export_payment(square_access_token, environment, location_id, order_i
     return total.get("amount") == EXPORT_PRICE_CENTS and total.get("currency") == EXPORT_CURRENCY
 
 
+def create_studio_checkout(square_access_token, environment, plan_variation_id, buyer_email, redirect_url):
+    """Creates a Square-hosted checkout link for the recurring Studio plan.
+    Pre-populating buyer_email lets us find the resulting Square customer
+    (and their subscription) by email during verification, since — unlike
+    the one-time export — Square does not hand back an order/subscription
+    id we can carry through the redirect."""
+    result = call_square_api(
+        "POST", "/v2/online-checkout/payment-links", square_access_token, environment,
+        body={
+            "idempotency_key": uuid.uuid4().hex,
+            "subscription_plan_id": plan_variation_id,
+            "price_money": {"amount": STUDIO_PRICE_CENTS, "currency": STUDIO_CURRENCY},
+            "checkout_options": {"redirect_url": redirect_url},
+            "pre_populated_data": {"buyer_email": buyer_email},
+        },
+    )
+    link = result.get("payment_link") or {}
+    checkout_url = link.get("url") or link.get("long_url")
+    if not checkout_url:
+        raise BackendError(502, "Square did not return a usable checkout link")
+    return {"checkoutUrl": checkout_url}
+
+
+def verify_studio_subscription(square_access_token, environment, location_id, plan_variation_id, buyer_email):
+    """Looks up the buyer's Square customer by the email used at checkout,
+    then confirms an ACTIVE subscription exists for the expected plan
+    variation and location. Returns the customer/subscription ids on
+    success, or None if nothing active is found yet."""
+    customers_result = call_square_api(
+        "POST", "/v2/customers/search", square_access_token, environment,
+        body={"query": {"filter": {"email_address": {"exact": buyer_email}}}},
+    )
+    customers = customers_result.get("customers") or []
+    if not customers:
+        return None
+    customer_id = customers[0].get("id")
+    if not customer_id:
+        return None
+    subscriptions_result = call_square_api(
+        "POST", "/v2/subscriptions/search", square_access_token, environment,
+        body={"query": {"filter": {"customer_ids": [customer_id], "location_ids": [location_id]}}},
+    )
+    for subscription in subscriptions_result.get("subscriptions") or []:
+        if subscription.get("plan_variation_id") != plan_variation_id:
+            continue
+        if subscription.get("status") == "ACTIVE":
+            return {"customerId": customer_id, "subscriptionId": subscription.get("id")}
+    return None
+
+
+def hash_password(password):
+    salt = secrets.token_bytes(PASSWORD_SALT_BYTES)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PASSWORD_HASH_ITERATIONS)
+    return salt.hex(), digest.hex()
+
+
+def verify_password(password, salt_hex, hash_hex):
+    salt = bytes.fromhex(salt_hex)
+    expected = bytes.fromhex(hash_hex)
+    actual = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PASSWORD_HASH_ITERATIONS)
+    return secrets.compare_digest(actual, expected)
+
+
+def normalize_email(value):
+    email = (value or "").strip().lower() if isinstance(value, str) else ""
+    if not email or len(email) > MAX_EMAIL_LENGTH or not EMAIL_PATTERN.match(email):
+        return None
+    return email
+
+
+def open_users_db(users_db_path):
+    connection = sqlite3.connect(users_db_path)
+    connection.execute("PRAGMA foreign_keys = ON")
+    return connection
+
+
+def init_users_db(users_db_path):
+    """Creates the accounts/sessions/subscriptions tables if they don't
+    already exist. Safe to call every time the backend starts."""
+    connection = open_users_db(users_db_path)
+    try:
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL UNIQUE,
+                password_salt TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sessions (
+                token TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS subscriptions (
+                user_id INTEGER PRIMARY KEY REFERENCES users(id),
+                square_customer_id TEXT,
+                square_subscription_id TEXT,
+                status TEXT NOT NULL DEFAULT 'inactive',
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def create_session(connection, user_id):
+    token = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    expires_at = now.timestamp() + SESSION_TTL_SECONDS
+    connection.execute(
+        "INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+        (
+            token,
+            user_id,
+            now.isoformat(),
+            datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat(),
+        ),
+    )
+    connection.commit()
+    return token
+
+
+def get_session_user(connection, token):
+    if not token:
+        return None
+    row = connection.execute(
+        "SELECT users.id, users.email, sessions.expires_at FROM sessions "
+        "JOIN users ON users.id = sessions.user_id WHERE sessions.token = ?",
+        (token,),
+    ).fetchone()
+    if not row:
+        return None
+    user_id, email, expires_at = row
+    if datetime.fromisoformat(expires_at) < datetime.now(timezone.utc):
+        connection.execute("DELETE FROM sessions WHERE token = ?", (token,))
+        connection.commit()
+        return None
+    return {"id": user_id, "email": email}
+
+
+def get_subscription_status(connection, user_id):
+    row = connection.execute(
+        "SELECT status FROM subscriptions WHERE user_id = ?", (user_id,)
+    ).fetchone()
+    return row[0] if row else "inactive"
+
+
+def record_active_subscription(connection, user_id, customer_id, subscription_id):
+    connection.execute(
+        """
+        INSERT INTO subscriptions (user_id, square_customer_id, square_subscription_id, status, updated_at)
+        VALUES (?, ?, ?, 'active', ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            square_customer_id = excluded.square_customer_id,
+            square_subscription_id = excluded.square_subscription_id,
+            status = 'active',
+            updated_at = excluded.updated_at
+        """,
+        (user_id, customer_id, subscription_id, datetime.now(timezone.utc).isoformat()),
+    )
+    connection.commit()
+
+
+def build_session_cookie(token, max_age):
+    cookie = SimpleCookie()
+    cookie[SESSION_COOKIE_NAME] = token
+    morsel = cookie[SESSION_COOKIE_NAME]
+    morsel["httponly"] = True
+    morsel["samesite"] = "Lax"
+    morsel["path"] = "/"
+    morsel["max-age"] = max_age
+    return morsel.OutputString()
+
+
 SITE_DRAFT_TEMPLATE = Path(__file__).resolve().parent.parent / "templates" / "site-draft" / "index.html.tmpl"
 
 # Matches yyz-caregivers' verified-accessible pilot palette (see
@@ -556,9 +776,11 @@ class BackendHandler(BaseHTTPRequestHandler):
     generate_limiter = SlidingWindowLimiter(GENERATE_RATE_LIMIT_MAX_REQUESTS, GENERATE_RATE_LIMIT_WINDOW_SECONDS)
     domain_limiter = SlidingWindowLimiter(DOMAIN_RATE_LIMIT_MAX_REQUESTS, DOMAIN_RATE_LIMIT_WINDOW_SECONDS)
     checkout_limiter = SlidingWindowLimiter(CHECKOUT_RATE_LIMIT_MAX_REQUESTS, CHECKOUT_RATE_LIMIT_WINDOW_SECONDS)
+    auth_limiter = SlidingWindowLimiter(AUTH_RATE_LIMIT_MAX_REQUESTS, AUTH_RATE_LIMIT_WINDOW_SECONDS)
     frontend_dir = None
     projects_dir = None
     init_script = None
+    users_db_path = None
 
     def log_message(self, format, *args):  # noqa: A002 (matches http.server signature)
         message = format % args
@@ -578,14 +800,35 @@ class BackendHandler(BaseHTTPRequestHandler):
             return True
         return False
 
-    def _send_json(self, status, payload):
+    def _send_json(self, status, payload, extra_headers=None):
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        for name, value in extra_headers or ():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
+
+    def _session_token(self):
+        cookie_header = self.headers.get("Cookie")
+        if not cookie_header:
+            return None
+        cookie = SimpleCookie()
+        try:
+            cookie.load(cookie_header)
+        except Exception:
+            return None
+        morsel = cookie.get(SESSION_COOKIE_NAME)
+        return morsel.value if morsel else None
+
+    def _current_user(self):
+        connection = open_users_db(self.users_db_path)
+        try:
+            return get_session_user(connection, self._session_token())
+        finally:
+            connection.close()
 
     def _read_json_body(self):
         declared_length = int(self.headers.get("Content-Length", "0") or "0")
@@ -629,6 +872,10 @@ class BackendHandler(BaseHTTPRequestHandler):
             self._handle_checkout_verify(urllib.parse.parse_qs(parsed.query))
             return
 
+        if parsed.path == "/api/auth/me":
+            self._handle_auth_me()
+            return
+
         if parsed.path.startswith("/api/"):
             self._send_json(404, {"error": "Unknown API route."})
             return
@@ -650,6 +897,18 @@ class BackendHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/checkout":
             self._handle_checkout_create()
+            return
+
+        if parsed.path == "/api/auth/signup":
+            self._handle_auth_signup()
+            return
+
+        if parsed.path == "/api/auth/login":
+            self._handle_auth_login()
+            return
+
+        if parsed.path == "/api/auth/logout":
+            self._handle_auth_logout()
             return
 
         if parsed.path.startswith("/api/"):
@@ -848,13 +1107,12 @@ class BackendHandler(BaseHTTPRequestHandler):
             self._send_json(500, {"error": "an unexpected error occurred"})
 
     def _handle_checkout_create(self):
-        """Creates a real Square-hosted checkout page for the fixed-price
-        one-time export purchase. The price is fixed server-side
-        (EXPORT_PRICE_CENTS) and never taken from the request. Only the
-        one-time 'once' plan is supported — the recurring Studio
-        subscription is not implemented, since a real subscription needs a
-        user-account system this prototype doesn't have; it remains a
-        simulated flow in the frontend."""
+        """Creates a real Square-hosted checkout page for either the
+        fixed-price one-time export purchase or the recurring Studio
+        subscription. Both prices are fixed server-side (EXPORT_PRICE_CENTS,
+        STUDIO_PRICE_CENTS) and never taken from the request. Studio also
+        requires a signed-in account, since a recurring charge needs
+        somewhere to attach the resulting subscription."""
         client = self.client_address[0] if self.client_address else "unknown"
         if not self.checkout_limiter.allow(client):
             self._send_json(429, {"error": "Too many checkout attempts. Try again shortly."})
@@ -881,36 +1139,98 @@ class BackendHandler(BaseHTTPRequestHandler):
             return
 
         plan = clean_text(data.get("plan"), 40) if isinstance(data, dict) else ""
-        if plan != "once":
-            self._send_json(
-                400,
-                {
-                    "error": "only the one-time export purchase is available for real checkout; "
-                    "the Studio subscription requires a user-account system that does not exist "
-                    "yet"
-                },
-            )
+        host = self.headers.get("Host", "127.0.0.1")
+
+        if plan == "once":
+            redirect_url = f"http://{host}/"
+            try:
+                result = create_export_checkout(square_access_token, environment, location_id, redirect_url)
+                self._send_json(200, result)
+            except BackendError as error:
+                self._send_json(error.status, {"error": error.message})
+            except Exception:  # noqa: BLE001 - never leak internals to the client
+                self._send_json(500, {"error": "an unexpected error occurred"})
             return
 
-        host = self.headers.get("Host", "127.0.0.1")
-        redirect_url = f"http://{host}/"
+        if plan == "studio":
+            plan_variation_id = os.environ.get("SQUARE_SUBSCRIPTION_PLAN_VARIATION_ID", "").strip()
+            if not plan_variation_id:
+                self._send_json(
+                    503,
+                    {
+                        "error": "Studio subscriptions are not configured. Set "
+                        "SQUARE_SUBSCRIPTION_PLAN_VARIATION_ID in the environment or in a .env "
+                        "file at the factory root, then restart ./factory frontend."
+                    },
+                )
+                return
 
-        try:
-            result = create_export_checkout(square_access_token, environment, location_id, redirect_url)
-            self._send_json(200, result)
-        except BackendError as error:
-            self._send_json(error.status, {"error": error.message})
-        except Exception:  # noqa: BLE001 - never leak internals to the client
-            self._send_json(500, {"error": "an unexpected error occurred"})
+            user = self._current_user()
+            if not user:
+                self._send_json(401, {"error": "sign in or create an account first to subscribe to Studio"})
+                return
+
+            # Square never hands back a subscription/order id through the
+            # redirect the way it does for the one-time export, so this
+            # marker is what tells restoreFromCheckoutRedirect which flow to
+            # verify (see verify_studio_subscription — it identifies the
+            # buyer by their still-valid session, not by anything in the URL).
+            redirect_url = f"http://{host}/?wf_checkout=studio"
+            try:
+                result = create_studio_checkout(
+                    square_access_token, environment, plan_variation_id, user["email"], redirect_url
+                )
+                self._send_json(200, result)
+            except BackendError as error:
+                self._send_json(error.status, {"error": error.message})
+            except Exception:  # noqa: BLE001 - never leak internals to the client
+                self._send_json(500, {"error": "an unexpected error occurred"})
+            return
+
+        self._send_json(400, {"error": "unknown plan"})
 
     def _handle_checkout_verify(self, query):
-        """Confirms a specific Square order actually completed payment for
-        the exact expected amount before the caller unlocks anything. This
-        is the only source of truth for whether a purchase is real — the
-        frontend must never infer payment success from the redirect alone."""
+        """Confirms a completed purchase before the caller unlocks anything.
+        This is the only source of truth for whether a purchase is real —
+        the frontend must never infer success from the redirect alone.
+        Branches on plan: the one-time export is verified by order id; the
+        Studio subscription is verified via the signed-in account's email,
+        since Square never hands back a subscription id through the
+        redirect."""
         square_access_token = os.environ.get("SQUARE_ACCESS_TOKEN", "").strip()
         location_id = os.environ.get("SQUARE_LOCATION_ID", "").strip()
         environment = os.environ.get("SQUARE_ENVIRONMENT", "sandbox").strip().lower() or "sandbox"
+        plan = (query.get("plan", ["once"])[0] or "once").strip().lower()
+
+        if plan == "studio":
+            plan_variation_id = os.environ.get("SQUARE_SUBSCRIPTION_PLAN_VARIATION_ID", "").strip()
+            if not square_access_token or not location_id or not plan_variation_id:
+                self._send_json(503, {"error": "Studio subscriptions are not configured."})
+                return
+
+            connection = open_users_db(self.users_db_path)
+            try:
+                user = get_session_user(connection, self._session_token())
+                if not user:
+                    self._send_json(401, {"error": "sign in first"})
+                    return
+                try:
+                    result = verify_studio_subscription(
+                        square_access_token, environment, location_id, plan_variation_id, user["email"]
+                    )
+                except BackendError as error:
+                    self._send_json(error.status, {"error": error.message})
+                    return
+                except Exception:  # noqa: BLE001 - never leak internals to the client
+                    self._send_json(500, {"error": "an unexpected error occurred"})
+                    return
+                if result:
+                    record_active_subscription(connection, user["id"], result["customerId"], result["subscriptionId"])
+                self._send_json(200, {"paid": bool(result)})
+            finally:
+                connection.close()
+            return
+
         if not square_access_token or not location_id:
             self._send_json(503, {"error": "Checkout is not configured."})
             return
@@ -927,6 +1247,109 @@ class BackendHandler(BaseHTTPRequestHandler):
             self._send_json(error.status, {"error": error.message})
         except Exception:  # noqa: BLE001 - never leak internals to the client
             self._send_json(500, {"error": "an unexpected error occurred"})
+
+    def _handle_auth_signup(self):
+        client = self.client_address[0] if self.client_address else "unknown"
+        if not self.auth_limiter.allow(client):
+            self._send_json(429, {"error": "Too many attempts. Try again shortly."})
+            return
+
+        try:
+            data = self._read_json_body()
+        except BackendError as error:
+            self._send_json(error.status, {"error": error.message})
+            return
+
+        email = normalize_email(data.get("email"))
+        password = data.get("password") if isinstance(data.get("password"), str) else ""
+        if not email:
+            self._send_json(400, {"error": "provide a valid email address"})
+            return
+        if len(password) < MIN_PASSWORD_LENGTH:
+            self._send_json(400, {"error": f"password must be at least {MIN_PASSWORD_LENGTH} characters"})
+            return
+
+        connection = open_users_db(self.users_db_path)
+        try:
+            existing = connection.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+            if existing:
+                self._send_json(409, {"error": "an account with that email already exists"})
+                return
+            salt, digest = hash_password(password)
+            cursor = connection.execute(
+                "INSERT INTO users (email, password_salt, password_hash, created_at) VALUES (?, ?, ?, ?)",
+                (email, salt, digest, datetime.now(timezone.utc).isoformat()),
+            )
+            connection.commit()
+            token = create_session(connection, cursor.lastrowid)
+        finally:
+            connection.close()
+
+        cookie = build_session_cookie(token, SESSION_TTL_SECONDS)
+        self._send_json(200, {"email": email, "subscriptionActive": False}, extra_headers=[("Set-Cookie", cookie)])
+
+    def _handle_auth_login(self):
+        client = self.client_address[0] if self.client_address else "unknown"
+        if not self.auth_limiter.allow(client):
+            self._send_json(429, {"error": "Too many attempts. Try again shortly."})
+            return
+
+        try:
+            data = self._read_json_body()
+        except BackendError as error:
+            self._send_json(error.status, {"error": error.message})
+            return
+
+        email = normalize_email(data.get("email"))
+        password = data.get("password") if isinstance(data.get("password"), str) else ""
+        if not email or not password:
+            self._send_json(401, {"error": "invalid email or password"})
+            return
+
+        connection = open_users_db(self.users_db_path)
+        try:
+            row = connection.execute(
+                "SELECT id, password_salt, password_hash FROM users WHERE email = ?", (email,)
+            ).fetchone()
+            if not row or not verify_password(password, row[1], row[2]):
+                self._send_json(401, {"error": "invalid email or password"})
+                return
+            user_id = row[0]
+            token = create_session(connection, user_id)
+            status = get_subscription_status(connection, user_id)
+        finally:
+            connection.close()
+
+        cookie = build_session_cookie(token, SESSION_TTL_SECONDS)
+        self._send_json(
+            200,
+            {"email": email, "subscriptionActive": status == "active"},
+            extra_headers=[("Set-Cookie", cookie)],
+        )
+
+    def _handle_auth_logout(self):
+        token = self._session_token()
+        if token:
+            connection = open_users_db(self.users_db_path)
+            try:
+                connection.execute("DELETE FROM sessions WHERE token = ?", (token,))
+                connection.commit()
+            finally:
+                connection.close()
+        cookie = build_session_cookie("", 0)
+        self._send_json(200, {"ok": True}, extra_headers=[("Set-Cookie", cookie)])
+
+    def _handle_auth_me(self):
+        connection = open_users_db(self.users_db_path)
+        try:
+            user = get_session_user(connection, self._session_token())
+            if not user:
+                self._send_json(401, {"error": "not signed in"})
+                return
+            status = get_subscription_status(connection, user["id"])
+        finally:
+            connection.close()
+        self._send_json(200, {"email": user["email"], "subscriptionActive": status == "active"})
 
     def _handle_status(self, slug):
         if not SLUG_PATTERN.match(slug):
@@ -1061,14 +1484,26 @@ def main(argv=None):
             file=sys.stderr,
         )
 
+    if not os.environ.get("SQUARE_SUBSCRIPTION_PLAN_VARIATION_ID", "").strip():
+        print(
+            "Note: SQUARE_SUBSCRIPTION_PLAN_VARIATION_ID is not set. The Studio subscription "
+            "checkout will return 503 until it is set in the environment or in a .env file at "
+            "the factory root.",
+            file=sys.stderr,
+        )
+
     init_script = projects_dir.parent / "tools" / "init-project.sh"
     if not init_script.is_file():
         print(f"Error: project initializer is missing at {init_script}.", file=sys.stderr)
         return 1
 
+    users_db_path = projects_dir.parent / ".factory-users.db"
+    init_users_db(users_db_path)
+
     BackendHandler.frontend_dir = frontend_dir
     BackendHandler.projects_dir = projects_dir
     BackendHandler.init_script = init_script
+    BackendHandler.users_db_path = users_db_path
 
     server = ThreadingHTTPServer((args.bind, args.port), BackendHandler)
     try:

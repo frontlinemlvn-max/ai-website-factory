@@ -622,14 +622,49 @@
           </sc-for>
         </div>
 
+        <sc-if value="{{ showStudioAuth }}">
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; margin-bottom: 14px; border-radius: var(--radius-md); background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-divider);">
+            <span style="font-size: 12.5px; color: color-mix(in srgb, var(--color-text) 70%, transparent);">Studio is a real recurring subscription, so it needs an account to attach to.</span>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <input class="input" type="email" style="flex: 1; min-width: 160px;" placeholder="Email" value="{{ authEmail }}" onChange="{{ onAuthEmail }}" />
+              <input class="input" type="password" style="flex: 1; min-width: 160px;" placeholder="Password" value="{{ authPassword }}" onChange="{{ onAuthPassword }}" />
+            </div>
+            <sc-if value="{{ hasAuthError }}">
+              <span style="font-size: 12px; color: #ef4444;">{{ authErrorText }}</span>
+            </sc-if>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+              <sc-if value="{{ authNotBusy }}" hint-placeholder-val="{{ true }}">
+                <button class="btn btn-primary" onClick="{{ submitAuth }}">{{ authSubmitLabel }}</button>
+              </sc-if>
+              <sc-if value="{{ authBusy }}">
+                <button class="btn btn-primary" disabled="{{ true }}">{{ authSubmitLabel }}</button>
+              </sc-if>
+              <button class="btn btn-ghost" onClick="{{ toggleAuthMode }}">{{ authToggleLabel }}</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showStudioAccountInfo }}">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 14px; border-radius: var(--radius-md); background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-divider); font-size: 12.5px;">
+            <i class="ph ph-user-circle" style="color: var(--color-accent);"></i>
+            <span style="color: color-mix(in srgb, var(--color-text) 70%, transparent);">Subscribing as {{ authUserEmail }}</span>
+            <button class="btn btn-ghost" style="margin-left: auto; padding: 4px 10px;" onClick="{{ logoutAuth }}">Log out</button>
+          </div>
+        </sc-if>
+
         <div class="dialog-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
           <span style="font-size: 11.5px; color: color-mix(in srgb, var(--color-text) 55%, transparent); margin-right: auto;">Preview and rewrites stay free · HST added at checkout</span>
-          <button class="btn btn-ghost" onClick="{{ closePaywall }}">Keep previewing</button>
-          <sc-if value="{{ notPaying }}" hint-placeholder-val="{{ true }}">
-            <button class="btn btn-primary" onClick="{{ pay }}"><i class="ph ph-lock-key-open"></i>{{ payLabel }}</button>
+          <sc-if value="{{ hasCheckoutError }}">
+            <span style="font-size: 12px; color: #ef4444;">{{ checkoutErrorText }}</span>
           </sc-if>
-          <sc-if value="{{ paying }}">
-            <button class="btn btn-primary" disabled="{{ true }}"><i class="ph ph-circle-notch" style="animation: wf-spin 1s linear infinite;"></i>{{ payLabel }}</button>
+          <button class="btn btn-ghost" onClick="{{ closePaywall }}">Keep previewing</button>
+          <sc-if value="{{ showPayButton }}" hint-placeholder-val="{{ true }}">
+            <sc-if value="{{ notPaying }}" hint-placeholder-val="{{ true }}">
+              <button class="btn btn-primary" onClick="{{ pay }}"><i class="ph ph-lock-key-open"></i>{{ payLabel }}</button>
+            </sc-if>
+            <sc-if value="{{ paying }}">
+              <button class="btn btn-primary" disabled="{{ true }}"><i class="ph ph-circle-notch" style="animation: wf-spin 1s linear infinite;"></i>{{ payLabel }}</button>
+            </sc-if>
           </sc-if>
         </div>
       </div>
@@ -681,7 +716,13 @@ class Component extends DCLogic {
     realDomainResults: null,
     publishing: false,
     publishError: null,
-    checkoutError: null
+    checkoutError: null,
+    authUser: null,
+    authMode: "signup",
+    authEmail: "",
+    authPassword: "",
+    authError: null,
+    authBusy: false
   };
 
   actionList = ["Book a slot", "Call us", "Buy online", "Join the newsletter"];
@@ -694,8 +735,66 @@ class Component extends DCLogic {
   componentDidMount() {
     this.place();
     window.addEventListener("resize", this.place);
+    this.checkAuth();
     this.restoreFromCheckoutRedirect();
   }
+
+  // Checks for an existing session (e.g. a page reload after signing in).
+  // Backend unreachable or not running is not an error here — the account
+  // system only matters when the backend and Square are both configured;
+  // otherwise Studio stays fully simulated as before.
+  checkAuth = async () => {
+    try {
+      const response = await fetch("/api/auth/me");
+      if (!response.ok) return;
+      const data = await response.json();
+      this.setState({ authUser: { email: data.email, subscriptionActive: !!data.subscriptionActive } });
+    } catch (e) {}
+  };
+
+  onAuthEmail = (e) => this.setState({ authEmail: e.target.value, authError: null });
+  onAuthPassword = (e) => this.setState({ authPassword: e.target.value, authError: null });
+  toggleAuthMode = () => this.setState((s) => ({
+    authMode: s.authMode === "signup" ? "login" : "signup", authError: null
+  }));
+
+  // Real signup/login against ./factory frontend's local backend (a
+  // password-hashed SQLite account, never sent anywhere but this server).
+  // Accounts exist only to gate the real Studio subscription below - there
+  // is no other use of an account in this prototype.
+  submitAuth = async () => {
+    const email = (this.state.authEmail || "").trim();
+    const password = this.state.authPassword || "";
+    if (!email || !password) {
+      this.setState({ authError: "Enter an email and password." });
+      return;
+    }
+    this.setState({ authBusy: true, authError: null });
+    const path = this.state.authMode === "login" ? "/api/auth/login" : "/api/auth/signup";
+    try {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data) {
+        this.setState({ authBusy: false, authError: (data && data.error) || "something went wrong" });
+        return;
+      }
+      this.setState({
+        authBusy: false, authError: null, authEmail: "", authPassword: "",
+        authUser: { email: data.email, subscriptionActive: !!data.subscriptionActive }
+      });
+    } catch (e) {
+      this.setState({ authBusy: false, authError: "could not reach the account server" });
+    }
+  };
+
+  logoutAuth = async () => {
+    try { await fetch("/api/auth/logout", { method: "POST" }); } catch (e) {}
+    this.setState({ authUser: null });
+  };
   componentDidUpdate() { this.place(); }
   componentWillUnmount() { window.removeEventListener("resize", this.place); clearTimeout(this.t); }
 
@@ -992,72 +1091,96 @@ class Component extends DCLogic {
   };
   closePaywall = () => this.setState({ paywall: false, paying: false });
   pickPlan = (key) => this.setState({ plan: key });
-  // Real payment for the one-time export plan, via ./factory frontend's
-  // /api/checkout (Square-hosted checkout — this app never handles card
-  // data itself). The Studio subscription stays fully simulated: a real
-  // recurring subscription needs a user-account system this prototype
-  // doesn't have. Falls back to the prior simulated toggle when there's no
-  // real backend, it isn't configured, or the request fails — same pattern
-  // used throughout this vertical slice.
+  // Real payment for both plans via ./factory frontend's /api/checkout
+  // (Square-hosted checkout — this app never handles card data itself).
+  // Falls back to the prior simulated toggle when there's no real backend,
+  // it isn't configured, or the request fails — same pattern used
+  // throughout this vertical slice. Studio additionally requires being
+  // signed in first (see the inline account form below the plan cards) -
+  // that's a real product requirement for a recurring charge, not an
+  // integration failure, so it is not silently bypassed.
   simulatePay = () => {
     this.setState({ paying: true });
     clearTimeout(this.p);
     this.p = setTimeout(() => this.setState({ paying: false, paywall: false, exportPaid: true, downloaded: true }), 1200);
   };
 
+  pendingCheckoutState = () => ({
+    name: this.state.name, brief: this.state.brief, who: this.state.who,
+    action: this.state.action, extras: this.state.extras, gen: this.state.gen,
+    backend: this.state.backend, boughtDomain: this.state.boughtDomain,
+    boughtPrice: this.state.boughtPrice
+  });
+
   pay = async () => {
     const plan = this.state.plan || "once";
-    if (plan !== "once") { this.simulatePay(); return; }
+    if (plan === "studio" && !this.state.authUser) {
+      this.setState({ authError: "Sign in or create an account first to subscribe." });
+      return;
+    }
 
     this.setState({ paying: true, checkoutError: null });
     try {
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: "once" })
+        body: JSON.stringify({ plan })
       });
       const data = await response.json().catch(() => null);
-      if (!response.ok || !data || !data.checkoutUrl || !data.orderId) {
+      if (!response.ok || !data || !data.checkoutUrl) {
         throw new Error((data && data.error) || "checkout unavailable");
       }
+      // For the one-time export, Square appends ?orderId=... to our
+      // redirect_url itself, so verification can be keyed to that order.
+      // Studio has no such id available up front (see
+      // verify_studio_subscription server-side), so it's verified by
+      // account instead — but we still need an unambiguous marker in the
+      // pending record so restoreFromCheckoutRedirect knows which flow it's
+      // resuming.
+      if (plan === "once" && !data.orderId) throw new Error("checkout unavailable");
 
       // This page has no state persistence beyond theme, and Square
       // Checkout is a real hosted redirect (full page navigation away and
       // back) — stash what's needed to restore the finished site once the
-      // customer returns, keyed to this specific order so a stale or
-      // unrelated localStorage entry can never be mistaken for this
-      // purchase.
+      // customer returns.
       try {
         localStorage.setItem("wf-pending-checkout", JSON.stringify({
-          orderId: data.orderId,
-          savedState: {
-            name: this.state.name, brief: this.state.brief, who: this.state.who,
-            action: this.state.action, extras: this.state.extras, gen: this.state.gen,
-            backend: this.state.backend, boughtDomain: this.state.boughtDomain,
-            boughtPrice: this.state.boughtPrice, plan
-          }
+          plan, orderId: data.orderId || null, savedState: { ...this.pendingCheckoutState(), plan }
         }));
       } catch (e) {}
 
       window.location.href = data.checkoutUrl;
     } catch (e) {
-      this.simulatePay();
+      if (plan === "studio") {
+        // A real recurring charge tied to a real account is not something
+        // to fake on failure the way the other integrations do — surface
+        // the real error instead of silently pretending to subscribe.
+        this.setState({ paying: false, checkoutError: (e && e.message) || "checkout unavailable" });
+      } else {
+        this.simulatePay();
+      }
     }
   };
 
   // Runs once on load. If the browser was just redirected back from a real
-  // Square checkout (Square appends ?orderId=... to our redirect_url), this
-  // verifies the payment server-side — the ONLY source of truth for
-  // whether it succeeded — before restoring the pre-redirect state and
-  // unlocking export. Never trusts the redirect's mere presence as proof of
-  // payment; a customer could reach that URL without having paid.
+  // Square checkout, this verifies the payment/subscription server-side —
+  // the ONLY source of truth for whether it succeeded — before restoring
+  // the pre-redirect state and unlocking export. Never trusts the
+  // redirect's mere presence as proof of payment; a customer could reach
+  // this URL without having paid. The one-time export is identified by the
+  // ?orderId Square appends to our redirect_url; Studio has no such id, so
+  // its redirect_url instead carries our own ?wf_checkout=studio marker,
+  // and verification uses the still-valid session cookie (see
+  // verify_studio_subscription) rather than any id from the URL.
   restoreFromCheckoutRedirect = async () => {
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get("orderId");
-    if (!orderId) return;
+    const studioReturn = params.get("wf_checkout") === "studio";
+    if (!orderId && !studioReturn) return;
 
-    // Clean the order-tracking params out of the URL regardless of outcome,
-    // so reloading or sharing the link can't replay a verification.
+    // Clean the checkout-tracking params out of the URL regardless of
+    // outcome, so reloading or sharing the link can't replay a
+    // verification.
     window.history.replaceState({}, "", window.location.pathname);
 
     let pending = null;
@@ -1067,18 +1190,26 @@ class Component extends DCLogic {
     } catch (e) {}
     try { localStorage.removeItem("wf-pending-checkout"); } catch (e) {}
 
-    if (!pending || pending.orderId !== orderId) return;
+    const verifyUrl = studioReturn
+      ? "/api/checkout/verify?plan=studio"
+      : "/api/checkout/verify?orderId=" + encodeURIComponent(orderId);
+    const expectedPlan = studioReturn ? "studio" : "once";
+    if (!pending || pending.plan !== expectedPlan || (expectedPlan === "once" && pending.orderId !== orderId)) return;
 
     try {
-      const response = await fetch("/api/checkout/verify?orderId=" + encodeURIComponent(orderId));
+      const response = await fetch(verifyUrl);
       const data = await response.json().catch(() => null);
       if (response.ok && data && data.paid === true) {
         this.setState({
           ...pending.savedState,
           finished: true, running: true,
           paywall: false, paying: false,
-          exportPaid: true, downloaded: false
+          exportPaid: true, downloaded: false,
+          authUser: studioReturn && this.state.authUser
+            ? { ...this.state.authUser, subscriptionActive: true }
+            : this.state.authUser
         });
+        if (studioReturn) this.checkAuth();
       }
       // If not paid (abandoned checkout, etc.), leave the page at its
       // default state rather than guessing — no partial/fake unlock.
@@ -1385,19 +1516,45 @@ class Component extends DCLogic {
       openPaywall: this.openPaywall,
       pay: this.pay,
       paying: !!s.paying,
+      selectedPlan: s.plan || "once",
+      isStudioPlan: (s.plan || "once") === "studio",
+      showStudioAuth: (s.plan || "once") === "studio" && !s.authUser,
+      showStudioAccountInfo: (s.plan || "once") === "studio" && !!s.authUser,
+      showPayButton: (s.plan || "once") !== "studio" || !!s.authUser,
       notPaying: !s.paying,
+      hasCheckoutError: !!s.checkoutError,
+      checkoutErrorText: s.checkoutError || "",
       exportLocked: !s.exportPaid,
       exportPaid: !!s.exportPaid,
       downloaded: !!s.downloaded,
       exportLabel: s.exportPaid ? "Download .zip" : "Export source",
       payLabel: s.paying ? "Taking payment…"
-        : "Pay " + (this.planDefs.find(p => p.key === (s.plan || "once")) || this.planDefs[0]).price + " and export",
+        : "Pay " + (this.planDefs.find(p => p.key === (s.plan || "once")) || this.planDefs[0]).price
+          + ((s.plan || "once") === "studio" ? " and subscribe" : " and export"),
       plans: this.planDefs.map(p => ({
         ...p,
         selected: p.key === (s.plan || "once"),
         unselected: p.key !== (s.plan || "once"),
         pick: () => this.pickPlan(p.key)
       })),
+
+      authUserEmail: s.authUser ? s.authUser.email : "",
+      authIsSignedIn: !!s.authUser,
+      authIsSignup: s.authMode !== "login",
+      authIsLogin: s.authMode === "login",
+      authEmail: s.authEmail || "",
+      authPassword: s.authPassword || "",
+      onAuthEmail: this.onAuthEmail,
+      onAuthPassword: this.onAuthPassword,
+      submitAuth: this.submitAuth,
+      toggleAuthMode: this.toggleAuthMode,
+      logoutAuth: this.logoutAuth,
+      authBusy: !!s.authBusy,
+      authNotBusy: !s.authBusy,
+      hasAuthError: !!s.authError,
+      authErrorText: s.authError || "",
+      authSubmitLabel: s.authBusy ? "Please wait…" : (s.authMode === "login" ? "Log in" : "Create account"),
+      authToggleLabel: s.authMode === "login" ? "Need an account? Sign up" : "Have an account? Log in",
 
       writing: !!s.writing,
       genError: s.genError || "",

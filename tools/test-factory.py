@@ -1004,15 +1004,23 @@ def run_suite(suite):
             env=no_external_key_environment,
         )
 
-        def request(method, path, payload=None):
+        last_response_headers = {}
+
+        def request(method, path, payload=None, headers=None):
             data = json.dumps(payload).encode("utf-8") if payload is not None else None
             req = Request(base + path, data=data, method=method)
             if data is not None:
                 req.add_header("Content-Type", "application/json")
+            for name, value in (headers or {}).items():
+                req.add_header(name, value)
             try:
                 with urlopen(req, timeout=2) as response:
+                    last_response_headers.clear()
+                    last_response_headers.update(response.headers.items())
                     return response.status, json.loads(response.read().decode("utf-8"))
             except HTTPError as error:
+                last_response_headers.clear()
+                last_response_headers.update(error.headers.items())
                 return error.code, json.loads(error.read().decode("utf-8"))
 
         try:
@@ -1163,6 +1171,63 @@ def run_suite(suite):
 
             status, body = request("GET", "/api/checkout/verify?orderId=abc123")
             require(status == 503, f"verify without Square configured should fail closed: {status} {body}")
+
+            # The Studio subscription checkout must also fail closed the
+            # same way when Square isn't configured at all.
+            status, body = request("POST", "/api/checkout", {"plan": "studio"})
+            require(status == 503, f"studio checkout without Square configured should fail closed: {status} {body}")
+
+            status, body = request("GET", "/api/checkout/verify?plan=studio")
+            require(status == 503, f"studio verify without Square configured should fail closed: {status} {body}")
+
+            # Real accounts: signup, /api/auth/me, duplicate rejection, wrong
+            # password, and logout — all against the sandboxed
+            # .factory-users.db this backend process created for this test
+            # run only, never a shared or real database.
+            status, body = request("POST", "/api/auth/signup", {"email": "not-an-email", "password": "long-enough-1"})
+            require(status == 400, f"signup should reject an invalid email: {status} {body}")
+
+            status, body = request("POST", "/api/auth/signup", {"email": "owner@example.com", "password": "short"})
+            require(status == 400, f"signup should reject a too-short password: {status} {body}")
+
+            status, body = request(
+                "POST", "/api/auth/signup", {"email": "Owner@Example.com", "password": "a-strong-password"}
+            )
+            require(status == 200, f"signup should succeed with a valid email and password: {status} {body}")
+            require(body.get("email") == "owner@example.com", f"signup should normalize and return the email: {body}")
+            session_cookie = last_response_headers.get("Set-Cookie")
+            require(session_cookie, "signup should set a session cookie")
+            session_cookie = session_cookie.split(";")[0]
+
+            status, body = request(
+                "POST", "/api/auth/signup", {"email": "owner@example.com", "password": "a-strong-password"}
+            )
+            require(status == 409, f"signup should reject a duplicate email: {status} {body}")
+
+            status, body = request("GET", "/api/auth/me", headers={"Cookie": session_cookie})
+            require(
+                status == 200 and body.get("email") == "owner@example.com",
+                f"me should reflect the signed-in account: {status} {body}",
+            )
+
+            status, body = request("GET", "/api/auth/me")
+            require(status == 401, f"me without a session cookie should be rejected: {status} {body}")
+
+            status, body = request(
+                "POST", "/api/auth/login", {"email": "owner@example.com", "password": "wrong-password"}
+            )
+            require(status == 401, f"login should reject a wrong password: {status} {body}")
+
+            status, body = request(
+                "POST", "/api/auth/login", {"email": "owner@example.com", "password": "a-strong-password"}
+            )
+            require(status == 200, f"login should succeed with the correct password: {status} {body}")
+
+            status, body = request("POST", "/api/auth/logout", headers={"Cookie": session_cookie})
+            require(status == 200, f"logout should succeed: {status} {body}")
+
+            status, body = request("GET", "/api/auth/me", headers={"Cookie": session_cookie})
+            require(status == 401, f"me should be rejected after logout: {status} {body}")
         finally:
             if process.poll() is None:
                 process.terminate()
@@ -1176,6 +1241,83 @@ def run_suite(suite):
     suite.case(
         "local backend serves the frontend, a validated project API, and fail-closed generation",
         local_backend_case,
+    )
+
+    def studio_subscription_login_gate_case():
+        # With Square fully "configured" (dummy sandbox values only — never
+        # real credentials), starting or verifying a Studio checkout must
+        # still be rejected before any network call if the requester isn't
+        # signed in. The login check happens before any Square API call, so
+        # this never reaches the network regardless of the fake token.
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+        base = f"http://127.0.0.1:{port}"
+
+        environment = dict(suite.environment)
+        environment.pop("ANTHROPIC_API_KEY", None)
+        environment.pop("VERCEL_TOKEN", None)
+        environment.pop("VERCEL_TEAM_ID", None)
+        environment["SQUARE_ACCESS_TOKEN"] = "test-sandbox-token"
+        environment["SQUARE_LOCATION_ID"] = "test-location-id"
+        environment["SQUARE_SUBSCRIPTION_PLAN_VARIATION_ID"] = "test-plan-variation-id"
+        environment["SQUARE_ENVIRONMENT"] = "sandbox"
+
+        process = subprocess.Popen(
+            [str(suite.factory), "frontend", str(port)],
+            cwd=suite.root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=environment,
+        )
+
+        def request(method, path, payload=None):
+            data = json.dumps(payload).encode("utf-8") if payload is not None else None
+            req = Request(base + path, data=data, method=method)
+            if data is not None:
+                req.add_header("Content-Type", "application/json")
+            try:
+                with urlopen(req, timeout=2) as response:
+                    return response.status, json.loads(response.read().decode("utf-8"))
+            except HTTPError as error:
+                return error.code, json.loads(error.read().decode("utf-8"))
+
+        try:
+            deadline = time.monotonic() + 8
+            ready = False
+            while time.monotonic() < deadline:
+                if process.poll() is not None:
+                    break
+                try:
+                    status, body = request("GET", "/api/health")
+                    ready = status == 200 and body.get("status") == "ok"
+                    if ready:
+                        break
+                except (URLError, TimeoutError, OSError):
+                    time.sleep(0.05)
+
+            if not ready:
+                output = process.communicate(timeout=3)[0] if process.poll() is None else ""
+                raise TestFailure(f"local backend did not become healthy\n{output[-1200:]}")
+
+            status, body = request("POST", "/api/checkout", {"plan": "studio"})
+            require(status == 401, f"studio checkout without signing in should be rejected: {status} {body}")
+
+            status, body = request("GET", "/api/checkout/verify?plan=studio")
+            require(status == 401, f"studio verify without signing in should be rejected: {status} {body}")
+        finally:
+            if process.poll() is None:
+                process.terminate()
+            try:
+                process.communicate(timeout=3)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.communicate(timeout=3)
+
+    suite.case(
+        "studio subscription checkout requires signing in even when Square is configured",
+        studio_subscription_login_gate_case,
     )
 
     def buy_domain_safety_case():

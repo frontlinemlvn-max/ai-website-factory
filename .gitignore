@@ -13,6 +13,7 @@ credentials.json
 secrets.json
 service-account.json
 .domain-contact.json
+.factory-users.db
 *.pem
 *.p12
 *.pfx

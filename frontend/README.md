@@ -62,12 +62,14 @@ Fonts are loaded from their CDNs. Both servers bind only to the local computer.
   **registration** (actually buying it) remains fully simulated in every run option —
   it is never reachable from the browser at all, by design (see "Domain registration"
   below for why).
-- The one-time **export purchase** ($39 CAD) becomes a real Square Checkout when
+- Both the one-time **export purchase** ($39 CAD) and the recurring **Studio
+  subscription** ($29 CAD/month) become real Square Checkout when
   `SQUARE_ACCESS_TOKEN` and `SQUARE_LOCATION_ID` are configured (see below), falling
-  back to the existing simulated instant-unlock otherwise. The recurring "Studio"
-  subscription plan stays fully simulated in every run option, since a real recurring
-  charge needs a user-account system this prototype doesn't have — source-download
-  itself also remains simulated (there is no real generated site bundle to download).
+  back to the existing simulated instant-unlock otherwise. Studio additionally
+  requires `SQUARE_SUBSCRIPTION_PLAN_VARIATION_ID` and a real signed-in account (see
+  "Payments" below) — the one-time export needs neither. Source-download after
+  either plan remains simulated either way (there is no real generated site bundle
+  to download yet).
 - Clicking **Publish** checks the project's REAL stage (via the existing
   `/api/projects/<slug>/status`) when a real backend project exists, and reports it
   honestly — a freshly-generated draft will say so and name the real stage, rather
@@ -79,7 +81,9 @@ Fonts are loaded from their CDNs. Both servers bind only to the local computer.
 - No credentials belong in this directory. The Anthropic API key used by
   `/api/generate`, the Vercel token used by domain checks, and the Square access
   token used by checkout all live server-side only (environment variable or `.env`
-  at the factory root) — the browser never sees them.
+  at the factory root) — the browser never sees them. Account passwords are salted
+  and hashed server-side too (see "Payments" below) — the browser only ever holds a
+  session cookie, never a password or password hash.
 
 ## Local backend vertical slice
 
@@ -101,16 +105,28 @@ Run with `./factory frontend` (see `tools/local_backend.py`) and these become re
   at the factory root (see `.env.example`); **fails closed with a clear 503** rather
   than fabricating output when the key is missing. Limited to 5 requests/minute per
   IP — tighter than the other routes' 180/minute, since each call costs real money.
-- `POST /api/checkout` — creates a real Square hosted Checkout Payment Link for the
-  one-time $39 CAD export (`plan: "once"` only; the recurring "Studio" plan is
-  rejected with a 400, since it needs a real user-account system). Requires
-  `SQUARE_ACCESS_TOKEN` and `SQUARE_LOCATION_ID` in the environment or `.env`;
-  **fails closed with a clear 503** when missing. `SQUARE_ENVIRONMENT` defaults to
-  `sandbox`. Limited to 10 requests/minute per IP.
-- `GET /api/checkout/verify?orderId=<id>` — after the browser is redirected back from
-  Square's hosted checkout, this cross-checks the order against Square's Orders API
-  (exact state, amount, and location) before the frontend unlocks anything. The
+- `POST /api/checkout` — creates a real Square hosted Checkout Payment Link for
+  either the one-time $39 CAD export (`plan: "once"`) or the recurring $29 CAD/month
+  Studio subscription (`plan: "studio"`). Requires `SQUARE_ACCESS_TOKEN` and
+  `SQUARE_LOCATION_ID` in the environment or `.env`; **fails closed with a clear
+  503** when missing. `SQUARE_ENVIRONMENT` defaults to `sandbox`. Studio additionally
+  requires `SQUARE_SUBSCRIPTION_PLAN_VARIATION_ID` (503 if unset) and a signed-in
+  account (401 if not signed in). Limited to 10 requests/minute per IP.
+- `GET /api/checkout/verify?orderId=<id>` (one-time) or `?plan=studio` (Studio) —
+  after the browser is redirected back from Square's hosted checkout, this confirms
+  the purchase server-side before the frontend unlocks anything: the one-time export
+  against Square's Orders API (exact state, amount, and location); Studio by looking
+  up the signed-in account's email against Square's Customers and Subscriptions APIs
+  and confirming an `ACTIVE` subscription for the right plan and location. The
   browser's own return-URL parameters are never trusted by themselves.
+- `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/logout`,
+  `GET /api/auth/me` — real accounts, backed by a local SQLite file
+  (`.factory-users.db`, created automatically at the factory root, gitignored, and
+  treated as sensitive by `./factory scan-secrets`). Passwords are hashed with
+  PBKDF2-SHA256 and a per-user random salt — never stored or logged in plain text.
+  Sessions are a random token in an `HttpOnly`, `SameSite=Lax` cookie. Accounts exist
+  only to gate the Studio subscription above; there is no other use of an account in
+  this prototype. Rate-limited like the other write routes.
 
 `index.html` resolves copy first (`window.claude.complete`, then `/api/generate`, then
 a local deterministic draft), then calls `POST /api/projects` with that copy attached.
@@ -132,7 +148,7 @@ caught silently and the fully simulated/local-draft experience continues exactly
 before. Domain purchase, publishing, deployment, and downloads are unaffected either
 way — they stay simulated regardless of which run option is used.
 
-## Payments: real one-time export, simulated subscription
+## Accounts and payments: both plans real, accounts scoped to Studio only
 
 Clicking "Pay" for the one-time $39 CAD export calls `POST /api/checkout`, which
 creates a real Square hosted Checkout Payment Link, and redirects the browser to it —
@@ -146,20 +162,33 @@ export is unlocked and the saved wizard state is restored — a successful-looki
 redirect URL by itself proves nothing and is never trusted alone. If checkout isn't
 configured (`SQUARE_ACCESS_TOKEN`/`SQUARE_LOCATION_ID` unset) or the request fails for
 any reason, the button falls back to the prior simulated instant-unlock — no
-functionality is lost. The recurring "Studio" subscription plan always uses the
-simulated unlock, in every run option: a real recurring charge needs a way to
-associate a paying customer with future access, which requires a user-account system
-this prototype does not have. Source-download after unlock also stays simulated
-either way, since there is no real generated site bundle to serve yet.
+functionality is lost.
+
+Selecting the recurring **Studio** plan shows an inline sign-up/log-in form (real
+accounts — see `POST /api/auth/signup`/`login` above) instead of an immediate Pay
+button, since a recurring charge needs somewhere to attach the resulting
+subscription; this is a real product requirement, not an integration failure, so it
+is not silently bypassed the way a configuration gap is. Once signed in, "Pay" calls
+the same `/api/checkout` with `plan: "studio"` and redirects to Square exactly as
+above, except the redirect URL carries our own `?wf_checkout=studio` marker (Square
+never hands back a subscription id the way it does an order id for the one-time
+plan). On return, verification uses the still-valid session cookie rather than
+anything in the URL — see `GET /api/checkout/verify?plan=studio` above. If Square
+itself isn't configured or the request fails, the real error is shown instead of
+silently pretending to subscribe, since faking a recurring charge tied to a real
+account would be actively misleading — this is a deliberate exception to the
+otherwise-universal silent-fallback pattern used everywhere else in this prototype.
+Source-download after either plan's unlock stays simulated regardless, since there
+is no real generated site bundle to serve yet.
 
 ## Domain registration is intentionally CLI-only
 
 `GET /api/domains/check?name=<domain>` (real, via Vercel's Domains Registrar API,
 fails closed with a 503 if `VERCEL_TOKEN` isn't set) is the only domain-related
 backend route. There is no `/api/domains/buy` or equivalent, and there never should
-be one reachable from the browser: this server has no user-authentication system, so
-any endpoint that could spend real, non-refundable money would be triggerable by
-anyone who can reach the URL, not just the account owner. Registering a domain is a
+be one reachable from the browser: the accounts added for Studio (above) authenticate
+a customer, not a Vercel account owner, so nothing here can safely gate who is
+allowed to spend real, non-refundable money on a domain. Registering a domain is a
 separate CLI command, `./factory buy-domain` (see the root `README.md` and
 `tools/domain-adapter.py`), run directly by whoever controls the Vercel account and
 its billing.
@@ -167,11 +196,11 @@ its billing.
 ## Further integration boundary
 
 Keep this prototype as the presentation layer. Real AI copy generation, a real
-single-page draft site, real domain availability/pricing, and a real one-time export
-payment now run server-side (see above) using this same pattern; if a Studio
-subscription, multi-page generation, or deployment are added later, extend it the
-same way — a server-side API between the browser and any provider credentials, never
-provider keys or factory logic moved into browser code. A generated draft is
+single-page draft site, real domain availability/pricing, real accounts, and real
+payment for both plans now run server-side (see above) using this same pattern; if
+multi-page generation or deployment are added later, extend it the same way — a
+server-side API between the browser and any provider credentials, never provider
+keys or factory logic moved into browser code. A generated draft is
 intentionally not a finished, launchable site: it still needs to go through the same
 Architecture → Design → Development → QA → specialist-review pipeline as any other
 factory project (see `yyz-caregivers` for what that looks like end to end) before any
