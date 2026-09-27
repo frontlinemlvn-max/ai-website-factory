@@ -30,7 +30,7 @@ STAGES = {
     },
     "Development": {
         "owner": "Frontend Developer",
-        "agent": "agents/Frontend-developer/AGENT.md",
+        "agent": "agents/frontend-developer/AGENT.md",
         "action": "Implement the approved architecture and design in the project source directory.",
         "output": "src/index.html and supporting source files",
     },

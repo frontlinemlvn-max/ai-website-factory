@@ -54,7 +54,7 @@ REQUIRED_FILES = (
 )
 
 REQUIRED_AGENT_FILES = (
-    "agents/Frontend-developer/AGENT.md",
+    "agents/frontend-developer/AGENT.md",
     "agents/accessibility-specialist/AGENT.md",
     "agents/backend-developer/AGENT.md",
     "agents/debug-fixer/AGENT.md",
