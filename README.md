@@ -283,10 +283,12 @@ Serves `frontend/` and a small JSON API from the same origin and port
 
 When run this way, finishing the frontend's onboarding wizard creates a real project
 under `projects/` and shows its live stage in a small "Factory record" readout. When
-real copy was obtained (from the API above), it's also rendered into an actual
-`src/index.html` for that project — a single-page static draft with a visible
-"unverified" banner, never a fabricated finished site, and the project's
-`PROJECT-BRIEF.md` notes that it still needs the full factory pipeline before launch.
+real copy was obtained (from the API above), it's also rendered into a real
+multi-page static draft under that project's `src/` — `index.html` plus one real,
+cross-linked page per nav item the AI wrote actual page content for (About, Services,
+Contact, or whatever fits the business), each with a visible "unverified" banner,
+never a fabricated finished site. The project's `PROJECT-BRIEF.md` notes that it
+still needs the full factory pipeline before launch.
 If the backend isn't running, `/api/generate` isn't configured, or generation
 otherwise fails, the page fails silently and keeps its fully simulated/local-draft
 behavior — no functionality is lost, and no fabricated content is ever written to

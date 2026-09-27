@@ -282,14 +282,19 @@ def build_copy_prompt(name, brief, who, action, extras):
         "Reply with ONLY a JSON object, no code fence, in this exact shape:\n"
         '{"kicker":"3-6 words, e.g. a location or specialism","title":"headline, max 12 words",'
         '"body":"2 sentences, max 40 words","ctaLabel":"2-4 words matching the main action",'
-        '"nav":["3 one-word or two-word page names"],'
+        '"nav":[{"label":"one or two words, e.g. About or Services","body":'
+        '"2-3 sentences, max 45 words, real copy for THIS page only"}],'
         '"services":[{"title":"2-4 words","body":"1 sentence, max 22 words","price":"short price or scope line"}],'
         '"closeTitle":"4-8 words inviting the main action","closeNote":"1 short line, max 16 words",'
         '"palette":{"paper":"#rrggbb very light page background","ink":"#rrggbb near-black text",'
         '"accent":"#rrggbb brand accent","band":"#rrggbb light tinted band"}}\n'
-        "Give exactly 3 services, drawn from what they said they do. The palette must suit this "
-        "industry (a tax firm is not a bakery): paper and band stay very light, ink stays dark "
-        "enough to read at 4.5:1, accent carries the brand."
+        "Give exactly 3 services, drawn from what they said they do. Give exactly 3 nav pages "
+        "(e.g. About, Services, Contact, Hours — pick what fits this business), each with its own "
+        "real paragraph of copy for that specific page, not a repeat of the home page. Never invent "
+        "specific facts like phone numbers, street addresses, or exact hours — describe what belongs "
+        "on the page in general, inviting terms instead. The palette must suit this industry (a tax "
+        "firm is not a bakery): paper and band stay very light, ink stays dark enough to read at "
+        "4.5:1, accent carries the brand."
     )
 
 
@@ -344,7 +349,17 @@ def call_anthropic(anthropic_key, prompt):
     services = data.get("services")
     services = [s for s in services if isinstance(s, dict) and s.get("title")] if isinstance(services, list) else []
     nav = data.get("nav")
-    nav = [{"label": str(item)} for item in nav[:3]] if isinstance(nav, list) else []
+    parsed_nav = []
+    if isinstance(nav, list):
+        for item in nav[:3]:
+            if isinstance(item, dict) and item.get("label"):
+                parsed_nav.append({"label": str(item.get("label") or ""), "body": str(item.get("body") or "")})
+            elif isinstance(item, str) and item.strip():
+                # Tolerate the older nav shape (a bare label with no page
+                # body) from a stale cached prompt/client — the page just
+                # won't be built as a separate file for that item.
+                parsed_nav.append({"label": item.strip(), "body": ""})
+    nav = parsed_nav
 
     return {
         "kicker": str(data.get("kicker") or ""),
@@ -695,6 +710,8 @@ def build_session_cookie(token, max_age):
 
 
 SITE_DRAFT_TEMPLATE = Path(__file__).resolve().parent.parent / "templates" / "site-draft" / "index.html.tmpl"
+SITE_PAGE_TEMPLATE = Path(__file__).resolve().parent.parent / "templates" / "site-draft" / "page.html.tmpl"
+MAX_NAV_PAGES = 3
 
 # Matches yyz-caregivers' verified-accessible pilot palette (see
 # projects/yyz-caregivers/design/UI-UX-SPEC.md) as a safe fallback whenever
@@ -734,19 +751,56 @@ def render_service_cards(services):
     )
 
 
-def render_planned_pages(nav):
-    labels = [item.get("label", "") for item in nav if isinstance(item, dict) and item.get("label")]
-    if not labels:
-        return "<span>Home (this page)</span>"
-    return "".join(f"<span>{html.escape(label)}</span>" for label in labels)
+def build_nav_pages(nav):
+    """Turns AI-supplied nav items ({label, body}) into real, unique page
+    slugs — dropping anything without both a label and real body content
+    (nothing gets built as a standalone page unless there's real copy for
+    it), deduplicating slug collisions, and never allowing "index" (that's
+    always the home page)."""
+    pages = []
+    used_slugs = {"index"}
+    for item in nav[:MAX_NAV_PAGES]:
+        if not isinstance(item, dict):
+            continue
+        label = (item.get("label") or "").strip()
+        body = (item.get("body") or "").strip()
+        if not label or not body:
+            continue
+        base_slug = slugify(label) or "page"
+        slug = base_slug
+        suffix = 2
+        while slug in used_slugs:
+            slug = f"{base_slug}-{suffix}"
+            suffix += 1
+        used_slugs.add(slug)
+        pages.append({"label": label, "body": body, "slug": slug})
+    return pages
+
+
+def render_site_nav(pages, current_slug):
+    """Builds the shared header nav: every built page links to every other
+    built page; the current page renders as plain (unlinked) text."""
+    entries = [{"label": "Home", "slug": "index"}] + [
+        {"label": page["label"], "slug": page["slug"]} for page in pages
+    ]
+    items = []
+    for entry in entries:
+        label = html.escape(entry["label"])
+        if entry["slug"] == current_slug:
+            items.append(f'<span class="nav-current">{label}</span>')
+        else:
+            items.append(f'<a href="{html.escape(entry["slug"])}.html">{label}</a>')
+    return "".join(items)
 
 
 def render_draft_site(business_name, copy_data):
-    """Render a single-page static HTML draft from generated copy. Every
-    interpolated value is HTML-escaped — this content originates from an AI
-    response (or a client-submitted fallback draft) and must never be
-    trusted as safe markup."""
-    if not SITE_DRAFT_TEMPLATE.is_file():
+    """Renders a real multi-page static HTML draft from generated copy:
+    index.html plus one file per nav item that has real AI-written body
+    content, all cross-linked by a shared nav. Every interpolated value is
+    HTML-escaped — this content originates from an AI response (or a
+    client-submitted fallback draft) and must never be trusted as safe
+    markup. Returns {filename: html} for the caller to write out."""
+    if not SITE_DRAFT_TEMPLATE.is_file() or not SITE_PAGE_TEMPLATE.is_file():
         raise BackendError(500, "the site draft template is missing")
 
     palette_in = copy_data.get("palette") or {}
@@ -756,9 +810,12 @@ def render_draft_site(business_name, copy_data):
         "accent": safe_hex_color(palette_in.get("accent"), DEFAULT_PALETTE["accent"]),
         "band": safe_hex_color(palette_in.get("band"), DEFAULT_PALETTE["band"]),
     }
+    escaped_business_name = html.escape(business_name or "Untitled business")
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    pages = build_nav_pages(copy_data.get("nav") or [])
 
-    context = {
-        "business_name": html.escape(business_name or "Untitled business"),
+    index_context = {
+        "business_name": escaped_business_name,
         "meta_description": html.escape((copy_data.get("body") or "")[:160]),
         "color_paper": palette["paper"],
         "color_ink": palette["ink"],
@@ -771,12 +828,30 @@ def render_draft_site(business_name, copy_data):
         "services_section": render_service_cards(copy_data.get("services") or []),
         "close_title": html.escape(copy_data.get("closeTitle") or "Ready when you are"),
         "close_note": html.escape(copy_data.get("closeNote") or ""),
-        "planned_pages_html": render_planned_pages(copy_data.get("nav") or []),
-        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "nav_html": render_site_nav(pages, "index"),
+        "generated_at": generated_at,
     }
 
-    template_text = SITE_DRAFT_TEMPLATE.read_text(encoding="utf-8")
-    return Template(template_text).safe_substitute(context)
+    index_template_text = SITE_DRAFT_TEMPLATE.read_text(encoding="utf-8")
+    files = {"index.html": Template(index_template_text).safe_substitute(index_context)}
+
+    page_template_text = SITE_PAGE_TEMPLATE.read_text(encoding="utf-8")
+    for page in pages:
+        page_context = {
+            "business_name": escaped_business_name,
+            "meta_description": html.escape(page["body"][:160]),
+            "color_paper": palette["paper"],
+            "color_ink": palette["ink"],
+            "color_accent": palette["accent"],
+            "color_band": palette["band"],
+            "page_title": html.escape(page["label"]),
+            "page_body": html.escape(page["body"]),
+            "nav_html": render_site_nav(pages, page["slug"]),
+            "generated_at": generated_at,
+        }
+        files[f"{page['slug']}.html"] = Template(page_template_text).safe_substitute(page_context)
+
+    return files
 
 
 class BackendHandler(BaseHTTPRequestHandler):
@@ -977,13 +1052,16 @@ class BackendHandler(BaseHTTPRequestHandler):
             self._append_intake_summary(project_dir, name, brief, who, action, extras)
 
             draft_site_generated = False
+            draft_pages_generated = 0
             if copy_data:
-                site_html = render_draft_site(name, copy_data)
+                site_files = render_draft_site(name, copy_data)
                 src_dir = project_dir / "src"
                 src_dir.mkdir(parents=True, exist_ok=True)
-                (src_dir / "index.html").write_text(site_html, encoding="utf-8")
-                self._append_draft_site_note(project_dir)
+                for filename, file_html in site_files.items():
+                    (src_dir / filename).write_text(file_html, encoding="utf-8")
+                self._append_draft_site_note(project_dir, len(site_files))
                 draft_site_generated = True
+                draft_pages_generated = len(site_files)
 
             self._send_json(
                 201,
@@ -992,6 +1070,7 @@ class BackendHandler(BaseHTTPRequestHandler):
                     "status": "created",
                     "statusUrl": f"/api/projects/{slug}/status",
                     "draftSiteGenerated": draft_site_generated,
+                    "draftPagesGenerated": draft_pages_generated,
                 },
             )
         except BackendError as error:
@@ -1027,18 +1106,20 @@ class BackendHandler(BaseHTTPRequestHandler):
             handle.write("\n".join(lines))
 
     @staticmethod
-    def _append_draft_site_note(project_dir):
+    def _append_draft_site_note(project_dir, page_count):
         brief_file = project_dir / "PROJECT-BRIEF.md"
         if not brief_file.is_file():
             return
+        page_word = "page" if page_count == 1 else "pages"
         note = (
             "\n\n## Auto-Generated Draft Site (unreviewed)\n\n"
-            "src/index.html was generated automatically from AI-drafted copy and a generic "
-            "template. It is a single-page starting point only: no business fact, service "
-            "claim, or navigation destination in it has been verified, and no other pages "
-            "exist yet. Treat it exactly like any other Intake-stage output — it still needs "
-            "the full factory pipeline (Architecture, Design, Development, QA, and every "
-            "specialist review) before any of it is trustworthy or launch-ready.\n"
+            f"src/ was generated automatically from AI-drafted copy and a generic template: "
+            f"{page_count} {page_word} (index.html plus any nav pages the AI wrote real content "
+            "for), cross-linked by a shared nav. No business fact, service claim, or page's "
+            "content in it has been verified. Treat it exactly like any other Intake-stage "
+            "output — it still needs the full factory pipeline (Architecture, Design, "
+            "Development, QA, and every specialist review) before any of it is trustworthy or "
+            "launch-ready.\n"
         )
         with brief_file.open("a", encoding="utf-8") as handle:
             handle.write(note)
