@@ -62,7 +62,7 @@ Fonts are loaded from their CDNs. Both servers bind only to the local computer.
   **registration** (actually buying it) remains fully simulated in every run option —
   it is never reachable from the browser at all, by design (see "Domain registration"
   below for why).
-- Both the one-time **export purchase** ($39 CAD) and the recurring **Studio
+- Both the one-time **export purchase** ($399 CAD) and the recurring **Studio
   subscription** ($29 CAD/month) become real Square Checkout when
   `SQUARE_ACCESS_TOKEN` and `SQUARE_LOCATION_ID` are configured (see below), falling
   back to the existing simulated instant-unlock otherwise. Studio additionally
@@ -106,7 +106,7 @@ Run with `./factory frontend` (see `tools/local_backend.py`) and these become re
   than fabricating output when the key is missing. Limited to 5 requests/minute per
   IP — tighter than the other routes' 180/minute, since each call costs real money.
 - `POST /api/checkout` — creates a real Square hosted Checkout Payment Link for
-  either the one-time $39 CAD export (`plan: "once"`) or the recurring $29 CAD/month
+  either the one-time $399 CAD export (`plan: "once"`) or the recurring $29 CAD/month
   Studio subscription (`plan: "studio"`). Requires `SQUARE_ACCESS_TOKEN` and
   `SQUARE_LOCATION_ID` in the environment or `.env`; **fails closed with a clear
   503** when missing. `SQUARE_ENVIRONMENT` defaults to `sandbox`. Studio additionally
@@ -155,7 +155,7 @@ used.
 
 ## Accounts and payments: both plans real, accounts scoped to Studio only
 
-Clicking "Pay" for the one-time $39 CAD export calls `POST /api/checkout`, which
+Clicking "Pay" for the one-time $399 CAD export calls `POST /api/checkout`, which
 creates a real Square hosted Checkout Payment Link, and redirects the browser to it —
 this app never collects or sees card details itself. Before redirecting, the pending
 order ID and the wizard's in-progress state are saved to `localStorage` (the only

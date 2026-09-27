@@ -1282,6 +1282,30 @@ def run_suite(suite):
         local_backend_case,
     )
 
+    def export_price_verification_case():
+        # The one-time export must unlock only for an order paid at the
+        # current $399 CAD price: an order paid at the old $39, in another
+        # currency, or not completed must never unlock it. Square is faked
+        # in-process, so nothing reaches the network.
+        module_path = suite.root / "tools" / "local_backend.py"
+        specification = importlib.util.spec_from_file_location("factory_local_backend_test", module_path)
+        require(specification is not None and specification.loader is not None, "backend could not be loaded")
+        module = importlib.util.module_from_spec(specification)
+        specification.loader.exec_module(module)
+        require(module.EXPORT_PRICE_CENTS == 39900, f"export price is not $399: {module.EXPORT_PRICE_CENTS}")
+
+        def verify(amount, currency="CAD", state="COMPLETED"):
+            order = {"location_id": "LOC", "state": state, "total_money": {"amount": amount, "currency": currency}}
+            module.call_square_api = lambda *args, **kwargs: {"order": order}
+            return module.verify_export_payment("token", "sandbox", "LOC", "order-1")
+
+        require(verify(39900), "an order paid at $399 CAD did not unlock the export")
+        require(not verify(3900), "an order paid at the old $39 price unlocked the export")
+        require(not verify(39900, currency="USD"), "an order paid in USD unlocked the export")
+        require(not verify(39900, state="OPEN"), "an unpaid order unlocked the export")
+
+    suite.case("export unlocks only for an order paid at the current price", export_price_verification_case)
+
     def studio_subscription_login_gate_case():
         # With Square fully "configured" (dummy sandbox values only — never
         # real credentials), starting or verifying a Studio checkout must
