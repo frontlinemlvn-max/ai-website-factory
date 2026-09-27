@@ -256,18 +256,30 @@ Serves `frontend/` and a small JSON API from the same origin and port
   `.env` file at the factory root; see `.env.example`) — fails closed with a clear
   503 rather than fabricating output when it's not set. Limited to 5 requests/minute
   per IP, since each call costs real money.
-- `POST /api/checkout` — creates a real Square hosted Checkout link for the one-time
-  $39 CAD website export. Requires `SQUARE_ACCESS_TOKEN` and `SQUARE_LOCATION_ID`
-  (environment or `.env`; see `.env.example`) — fails closed with a clear 503 when
-  not set. `SQUARE_ENVIRONMENT` defaults to `sandbox` (no real charges) and must be
-  explicitly set to `production` to accept real payments. Only the one-time export
-  plan is real; requesting checkout for the recurring "Studio" plan is rejected with
-  a 400, since a real subscription needs a user-account system this prototype
-  doesn't have. Limited to 10 requests/minute per IP.
+- `POST /api/checkout` — creates a real Square hosted Checkout link for either the
+  one-time $39 CAD website export or the recurring $29 CAD/month Studio
+  subscription. Requires `SQUARE_ACCESS_TOKEN` and `SQUARE_LOCATION_ID` (environment
+  or `.env`; see `.env.example`) — fails closed with a clear 503 when not set.
+  `SQUARE_ENVIRONMENT` defaults to `sandbox` (no real charges) and must be
+  explicitly set to `production` to accept real payments. The Studio plan
+  additionally requires `SQUARE_SUBSCRIPTION_PLAN_VARIATION_ID` (503 if unset) and a
+  signed-in account (401 if not signed in) — a real recurring charge needs
+  somewhere to attach the resulting subscription. Limited to 10 requests/minute per
+  IP.
 - `GET /api/checkout/verify` — after the customer returns from Square's hosted
-  checkout, cross-checks the order server-side against Square's Orders API (state,
-  amount, and location) before the frontend is allowed to unlock the export. The
+  checkout, cross-checks the purchase server-side before the frontend is allowed to
+  unlock anything: the one-time export by order id against Square's Orders API
+  (state, amount, and location); the Studio subscription by the signed-in account's
+  email against Square's Customers and Subscriptions APIs (Square doesn't hand back
+  a subscription id through the redirect the way it does an order id). The
   browser's return URL is never trusted on its own.
+- `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/logout`,
+  `GET /api/auth/me` — real accounts, used only to gate the Studio subscription
+  above. Passwords are salted and hashed (PBKDF2-SHA256) in a local SQLite file,
+  `.factory-users.db`, created automatically at the factory root — gitignored and
+  treated as sensitive by `./factory scan-secrets`, and never sent anywhere but this
+  server. Sessions are a random token in an `HttpOnly` cookie. There is no other use
+  of accounts in this prototype.
 
 When run this way, finishing the frontend's onboarding wizard creates a real project
 under `projects/` and shows its live stage in a small "Factory record" readout. When
@@ -280,17 +292,19 @@ otherwise fails, the page fails silently and keeps its fully simulated/local-dra
 behavior — no functionality is lost, and no fabricated content is ever written to
 disk. The domain step's "Check availability" also becomes real when `VERCEL_TOKEN` is
 set, using Vercel's Domains Registrar API — but **registering (buying) a domain is
-never reachable from the browser**, since this server has no user authentication that
-could safely gate who is allowed to spend money; that's a deliberate separate CLI
-step (see below). Clicking "Publish" checks the project's real stage via the existing
-status endpoint and reports it honestly (it will say so if the draft still needs the
-full review pipeline) rather than fabricating a "live" result — it only shows as live
-once the project has actually reached `Deployed`, which requires the owner to run
-`./factory deploy` themselves; that command is unaffected and unchanged by this. **No
-part of publishing/deployment is triggerable from the browser.** The one-time export
-purchase uses real Square Checkout (above) when configured; the recurring "Studio"
-subscription remains explicitly simulated in every mode, since it would require a
-real user-account system. See `frontend/README.md` for the full boundary and the
+never reachable from the browser**, since accounts in this prototype authenticate a
+customer, not a Vercel account owner, so nothing here can safely gate who is allowed
+to spend money on a domain; that's a deliberate separate CLI step (see below). The
+same reasoning keeps actual deployment CLI-only: clicking "Publish" checks the
+project's real stage via the existing status endpoint and reports it honestly (it
+will say so if the draft still needs the full review pipeline) rather than
+fabricating a "live" result — it only shows as live once the project has actually
+reached `Deployed`, which requires the owner to run `./factory deploy` themselves;
+that command is unaffected and unchanged by this. **No part of publishing/deployment
+is triggerable from the browser.** Both the one-time export and the recurring
+Studio subscription use real Square Checkout (above) when configured; Studio
+additionally requires a real account (above), which is the one place in this
+prototype accounts are used. See `frontend/README.md` for the full boundary and the
 export technology.
 
 ## Register a domain

@@ -25,8 +25,13 @@ SECURITY_HEADERS = (
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data:; "
-        "connect-src 'self'; "
-        "upgrade-insecure-requests",
+        "connect-src 'self'",
+        # No 'upgrade-insecure-requests': this server only ever speaks plain
+        # HTTP on loopback and never runs behind TLS. Chrome exempts
+        # 127.0.0.1/localhost from that directive's upgrade, but Safari does
+        # not — it upgrades every sub-resource request to https and then
+        # fails with a TLS error, since nothing here serves HTTPS. See the
+        # matching fix and explanation in tools/local_backend.py.
     ),
     ("X-Content-Type-Options", "nosniff"),
     ("X-Frame-Options", "DENY"),
