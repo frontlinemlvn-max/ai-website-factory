@@ -59,9 +59,15 @@ Fonts are loaded from their CDNs. Both servers bind only to the local computer.
   result looks the same either way, by design.
 - Domain **availability and pricing** becomes real when `VERCEL_TOKEN` is configured
   (see below), falling back to the existing simulated results otherwise. Domain
-  **registration** (actually buying it), payment, and source-download actions remain
-  fully simulated in every run option — none of them are reachable from the browser
-  at all, by design (see "Domain registration" below for why).
+  **registration** (actually buying it) remains fully simulated in every run option —
+  it is never reachable from the browser at all, by design (see "Domain registration"
+  below for why).
+- The one-time **export purchase** ($39 CAD) becomes a real Square Checkout when
+  `SQUARE_ACCESS_TOKEN` and `SQUARE_LOCATION_ID` are configured (see below), falling
+  back to the existing simulated instant-unlock otherwise. The recurring "Studio"
+  subscription plan stays fully simulated in every run option, since a real recurring
+  charge needs a user-account system this prototype doesn't have — source-download
+  itself also remains simulated (there is no real generated site bundle to download).
 - Clicking **Publish** checks the project's REAL stage (via the existing
   `/api/projects/<slug>/status`) when a real backend project exists, and reports it
   honestly — a freshly-generated draft will say so and name the real stage, rather
@@ -71,8 +77,9 @@ Fonts are loaded from their CDNs. Both servers bind only to the local computer.
   same no-authentication reason domain registration isn't. Falls back to the prior
   simulated toggle when there's no real backend project to check.
 - No credentials belong in this directory. The Anthropic API key used by
-  `/api/generate` and the Vercel token used by domain checks live server-side only
-  (environment variable or `.env` at the factory root) — the browser never sees them.
+  `/api/generate`, the Vercel token used by domain checks, and the Square access
+  token used by checkout all live server-side only (environment variable or `.env`
+  at the factory root) — the browser never sees them.
 
 ## Local backend vertical slice
 
@@ -94,6 +101,16 @@ Run with `./factory frontend` (see `tools/local_backend.py`) and these become re
   at the factory root (see `.env.example`); **fails closed with a clear 503** rather
   than fabricating output when the key is missing. Limited to 5 requests/minute per
   IP — tighter than the other routes' 180/minute, since each call costs real money.
+- `POST /api/checkout` — creates a real Square hosted Checkout Payment Link for the
+  one-time $39 CAD export (`plan: "once"` only; the recurring "Studio" plan is
+  rejected with a 400, since it needs a real user-account system). Requires
+  `SQUARE_ACCESS_TOKEN` and `SQUARE_LOCATION_ID` in the environment or `.env`;
+  **fails closed with a clear 503** when missing. `SQUARE_ENVIRONMENT` defaults to
+  `sandbox`. Limited to 10 requests/minute per IP.
+- `GET /api/checkout/verify?orderId=<id>` — after the browser is redirected back from
+  Square's hosted checkout, this cross-checks the order against Square's Orders API
+  (exact state, amount, and location) before the frontend unlocks anything. The
+  browser's own return-URL parameters are never trusted by themselves.
 
 `index.html` resolves copy first (`window.claude.complete`, then `/api/generate`, then
 a local deterministic draft), then calls `POST /api/projects` with that copy attached.
@@ -112,8 +129,28 @@ auto-generated site — rather than ever writing fabricated content to disk. The
 "Factory record" line shows whether a draft site was generated. Any failure anywhere
 in this chain (backend not running, network error, generation not configured) is
 caught silently and the fully simulated/local-draft experience continues exactly as
-before. Payments, domain purchase, publishing, deployment, and downloads are
-unaffected either way — they stay simulated regardless of which run option is used.
+before. Domain purchase, publishing, deployment, and downloads are unaffected either
+way — they stay simulated regardless of which run option is used.
+
+## Payments: real one-time export, simulated subscription
+
+Clicking "Pay" for the one-time $39 CAD export calls `POST /api/checkout`, which
+creates a real Square hosted Checkout Payment Link, and redirects the browser to it —
+this app never collects or sees card details itself. Before redirecting, the pending
+order ID and the wizard's in-progress state are saved to `localStorage` (the only
+state this frontend persists beyond `theme`), since Square's hosted checkout is a full
+page navigation away and back, not an embedded flow. On return, `GET
+/api/checkout/verify` confirms with Square's own Orders API that the order is
+`COMPLETED`, for the correct location, and for the exact expected amount, before the
+export is unlocked and the saved wizard state is restored — a successful-looking
+redirect URL by itself proves nothing and is never trusted alone. If checkout isn't
+configured (`SQUARE_ACCESS_TOKEN`/`SQUARE_LOCATION_ID` unset) or the request fails for
+any reason, the button falls back to the prior simulated instant-unlock — no
+functionality is lost. The recurring "Studio" subscription plan always uses the
+simulated unlock, in every run option: a real recurring charge needs a way to
+associate a paying customer with future access, which requires a user-account system
+this prototype does not have. Source-download after unlock also stays simulated
+either way, since there is no real generated site bundle to serve yet.
 
 ## Domain registration is intentionally CLI-only
 
@@ -129,10 +166,11 @@ its billing.
 
 ## Further integration boundary
 
-Keep this prototype as the presentation layer. Real AI copy generation and a real
-single-page draft site now run server-side (see above) using this same pattern; if
-payments, multi-page generation, or deployment are added later, extend it the same
-way — a server-side API between the browser and any provider credentials, never
+Keep this prototype as the presentation layer. Real AI copy generation, a real
+single-page draft site, real domain availability/pricing, and a real one-time export
+payment now run server-side (see above) using this same pattern; if a Studio
+subscription, multi-page generation, or deployment are added later, extend it the
+same way — a server-side API between the browser and any provider credentials, never
 provider keys or factory logic moved into browser code. A generated draft is
 intentionally not a finished, launchable site: it still needs to go through the same
 Architecture → Design → Development → QA → specialist-review pipeline as any other

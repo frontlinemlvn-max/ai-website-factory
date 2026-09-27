@@ -991,6 +991,9 @@ def run_suite(suite):
         no_external_key_environment.pop("ANTHROPIC_API_KEY", None)
         no_external_key_environment.pop("VERCEL_TOKEN", None)
         no_external_key_environment.pop("VERCEL_TEAM_ID", None)
+        no_external_key_environment.pop("SQUARE_ACCESS_TOKEN", None)
+        no_external_key_environment.pop("SQUARE_LOCATION_ID", None)
+        no_external_key_environment.pop("SQUARE_ENVIRONMENT", None)
 
         process = subprocess.Popen(
             [str(suite.factory), "frontend", str(port)],
@@ -1147,6 +1150,19 @@ def run_suite(suite):
 
             status, body = request("GET", "/api/domains/check?name=not_a_valid_domain")
             require(status == 503, f"format validation runs after the token check: {status} {body}")
+
+            # /api/checkout must fail closed (never create a real order or
+            # imply a checkout is available) when Square isn't configured,
+            # which is guaranteed by no_external_key_environment above.
+            status, body = request("POST", "/api/checkout", {"plan": "once"})
+            require(status == 503, f"checkout without Square configured should fail closed: {status} {body}")
+            require(
+                "SQUARE_ACCESS_TOKEN" in (body.get("error") or ""),
+                f"unconfigured-checkout error should name the required variable: {body}",
+            )
+
+            status, body = request("GET", "/api/checkout/verify?orderId=abc123")
+            require(status == 503, f"verify without Square configured should fail closed: {status} {body}")
         finally:
             if process.poll() is None:
                 process.terminate()

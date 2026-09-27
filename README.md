@@ -256,6 +256,18 @@ Serves `frontend/` and a small JSON API from the same origin and port
   `.env` file at the factory root; see `.env.example`) — fails closed with a clear
   503 rather than fabricating output when it's not set. Limited to 5 requests/minute
   per IP, since each call costs real money.
+- `POST /api/checkout` — creates a real Square hosted Checkout link for the one-time
+  $39 CAD website export. Requires `SQUARE_ACCESS_TOKEN` and `SQUARE_LOCATION_ID`
+  (environment or `.env`; see `.env.example`) — fails closed with a clear 503 when
+  not set. `SQUARE_ENVIRONMENT` defaults to `sandbox` (no real charges) and must be
+  explicitly set to `production` to accept real payments. Only the one-time export
+  plan is real; requesting checkout for the recurring "Studio" plan is rejected with
+  a 400, since a real subscription needs a user-account system this prototype
+  doesn't have. Limited to 10 requests/minute per IP.
+- `GET /api/checkout/verify` — after the customer returns from Square's hosted
+  checkout, cross-checks the order server-side against Square's Orders API (state,
+  amount, and location) before the frontend is allowed to unlock the export. The
+  browser's return URL is never trusted on its own.
 
 When run this way, finishing the frontend's onboarding wizard creates a real project
 under `projects/` and shows its live stage in a small "Factory record" readout. When
@@ -275,9 +287,11 @@ status endpoint and reports it honestly (it will say so if the draft still needs
 full review pipeline) rather than fabricating a "live" result — it only shows as live
 once the project has actually reached `Deployed`, which requires the owner to run
 `./factory deploy` themselves; that command is unaffected and unchanged by this. **No
-part of publishing/deployment is triggerable from the browser, and payments remain
-explicitly simulated** in every mode. See `frontend/README.md` for the full boundary
-and the export technology.
+part of publishing/deployment is triggerable from the browser.** The one-time export
+purchase uses real Square Checkout (above) when configured; the recurring "Studio"
+subscription remains explicitly simulated in every mode, since it would require a
+real user-account system. See `frontend/README.md` for the full boundary and the
+export technology.
 
 ## Register a domain
 

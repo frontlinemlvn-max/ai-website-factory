@@ -46,6 +46,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 
 
 SECURITY_HEADERS = (
@@ -109,6 +110,20 @@ DOMAIN_RATE_LIMIT_MAX_REQUESTS = 20
 DOMAIN_PATTERN = re.compile(
     r"^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$"
 )
+
+SQUARE_API_VERSION = "2026-09-16"
+SQUARE_TIMEOUT_SECONDS = 15
+SQUARE_ENVIRONMENTS = {
+    "sandbox": "https://connect.squareupsandbox.com",
+    "production": "https://connect.squareup.com",
+}
+CHECKOUT_RATE_LIMIT_WINDOW_SECONDS = 60
+CHECKOUT_RATE_LIMIT_MAX_REQUESTS = 10
+# Price is fixed here, server-side, and never taken from the request body —
+# a client-supplied price would let anyone buy the export for any amount
+# they chose. This must be the only source of truth for what gets charged.
+EXPORT_PRICE_CENTS = 3900
+EXPORT_CURRENCY = "CAD"
 
 
 def load_dotenv(path):
@@ -376,6 +391,81 @@ def check_domain(domain, vercel_token, team_id=None):
     }
 
 
+def call_square_api(method, path, square_access_token, environment, body=None):
+    base_url = SQUARE_ENVIRONMENTS.get(environment)
+    if not base_url:
+        raise BackendError(500, "SQUARE_ENVIRONMENT must be 'sandbox' or 'production'")
+
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    request = urllib.request.Request(
+        f"{base_url}{path}",
+        data=data,
+        method=method,
+        headers={
+            "Authorization": f"Bearer {square_access_token}",
+            "Content-Type": "application/json",
+            "Square-Version": SQUARE_API_VERSION,
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=SQUARE_TIMEOUT_SECONDS) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")[:500]
+        sys.stderr.write(f"Square API error {error.code} on {method} {path}: {detail}\n")
+        try:
+            parsed = json.loads(detail)
+            errors = parsed.get("errors") or []
+            message = errors[0].get("detail") if errors else f"HTTP {error.code}"
+        except (json.JSONDecodeError, AttributeError, IndexError):
+            message = f"HTTP {error.code}"
+        raise BackendError(502, f"Square rejected the request: {message}") from None
+    except (urllib.error.URLError, TimeoutError) as error:
+        raise BackendError(502, "could not reach Square") from error
+    except json.JSONDecodeError as error:
+        raise BackendError(502, "Square returned an unreadable response") from error
+
+
+def create_export_checkout(square_access_token, environment, location_id, redirect_url):
+    """Creates a real Square-hosted checkout page for the fixed-price
+    one-time export purchase. Never accepts a client-supplied price."""
+    result = call_square_api(
+        "POST",
+        "/v2/online-checkout/payment-links",
+        square_access_token,
+        environment,
+        body={
+            "idempotency_key": uuid.uuid4().hex,
+            "quick_pay": {
+                "name": "Website export (one-time)",
+                "price_money": {"amount": EXPORT_PRICE_CENTS, "currency": EXPORT_CURRENCY},
+                "location_id": location_id,
+            },
+            "checkout_options": {"redirect_url": redirect_url},
+        },
+    )
+    link = result.get("payment_link") or {}
+    checkout_url = link.get("url") or link.get("long_url")
+    order_id = link.get("order_id")
+    if not checkout_url or not order_id:
+        raise BackendError(502, "Square did not return a usable checkout link")
+    return {"checkoutUrl": checkout_url, "orderId": order_id}
+
+
+def verify_export_payment(square_access_token, environment, location_id, order_id):
+    """Confirms a specific order actually completed payment for the exact
+    expected amount, currency, and location — never trusts order state
+    alone without cross-checking the charged amount matches what we set."""
+    result = call_square_api("GET", f"/v2/orders/{urllib.parse.quote(order_id)}", square_access_token, environment)
+    order = result.get("order") or {}
+    if order.get("location_id") != location_id:
+        return False
+    if order.get("state") != "COMPLETED":
+        return False
+    total = order.get("total_money") or {}
+    return total.get("amount") == EXPORT_PRICE_CENTS and total.get("currency") == EXPORT_CURRENCY
+
+
 SITE_DRAFT_TEMPLATE = Path(__file__).resolve().parent.parent / "templates" / "site-draft" / "index.html.tmpl"
 
 # Matches yyz-caregivers' verified-accessible pilot palette (see
@@ -465,6 +555,7 @@ class BackendHandler(BaseHTTPRequestHandler):
     limiter = SlidingWindowLimiter(RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_SECONDS)
     generate_limiter = SlidingWindowLimiter(GENERATE_RATE_LIMIT_MAX_REQUESTS, GENERATE_RATE_LIMIT_WINDOW_SECONDS)
     domain_limiter = SlidingWindowLimiter(DOMAIN_RATE_LIMIT_MAX_REQUESTS, DOMAIN_RATE_LIMIT_WINDOW_SECONDS)
+    checkout_limiter = SlidingWindowLimiter(CHECKOUT_RATE_LIMIT_MAX_REQUESTS, CHECKOUT_RATE_LIMIT_WINDOW_SECONDS)
     frontend_dir = None
     projects_dir = None
     init_script = None
@@ -534,6 +625,10 @@ class BackendHandler(BaseHTTPRequestHandler):
             self._handle_domain_check(urllib.parse.parse_qs(parsed.query))
             return
 
+        if parsed.path == "/api/checkout/verify":
+            self._handle_checkout_verify(urllib.parse.parse_qs(parsed.query))
+            return
+
         if parsed.path.startswith("/api/"):
             self._send_json(404, {"error": "Unknown API route."})
             return
@@ -551,6 +646,10 @@ class BackendHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/generate":
             self._handle_generate()
+            return
+
+        if parsed.path == "/api/checkout":
+            self._handle_checkout_create()
             return
 
         if parsed.path.startswith("/api/"):
@@ -743,6 +842,87 @@ class BackendHandler(BaseHTTPRequestHandler):
             team_id = os.environ.get("VERCEL_TEAM_ID", "").strip() or None
             result = check_domain(domain, vercel_token, team_id)
             self._send_json(200, result)
+        except BackendError as error:
+            self._send_json(error.status, {"error": error.message})
+        except Exception:  # noqa: BLE001 - never leak internals to the client
+            self._send_json(500, {"error": "an unexpected error occurred"})
+
+    def _handle_checkout_create(self):
+        """Creates a real Square-hosted checkout page for the fixed-price
+        one-time export purchase. The price is fixed server-side
+        (EXPORT_PRICE_CENTS) and never taken from the request. Only the
+        one-time 'once' plan is supported — the recurring Studio
+        subscription is not implemented, since a real subscription needs a
+        user-account system this prototype doesn't have; it remains a
+        simulated flow in the frontend."""
+        client = self.client_address[0] if self.client_address else "unknown"
+        if not self.checkout_limiter.allow(client):
+            self._send_json(429, {"error": "Too many checkout attempts. Try again shortly."})
+            return
+
+        square_access_token = os.environ.get("SQUARE_ACCESS_TOKEN", "").strip()
+        location_id = os.environ.get("SQUARE_LOCATION_ID", "").strip()
+        environment = os.environ.get("SQUARE_ENVIRONMENT", "sandbox").strip().lower() or "sandbox"
+        if not square_access_token or not location_id:
+            self._send_json(
+                503,
+                {
+                    "error": "Checkout is not configured. Set SQUARE_ACCESS_TOKEN and "
+                    "SQUARE_LOCATION_ID in the environment or in a .env file at the factory "
+                    "root, then restart ./factory frontend."
+                },
+            )
+            return
+
+        try:
+            data = self._read_json_body()
+        except BackendError as error:
+            self._send_json(error.status, {"error": error.message})
+            return
+
+        plan = clean_text(data.get("plan"), 40) if isinstance(data, dict) else ""
+        if plan != "once":
+            self._send_json(
+                400,
+                {
+                    "error": "only the one-time export purchase is available for real checkout; "
+                    "the Studio subscription requires a user-account system that does not exist "
+                    "yet"
+                },
+            )
+            return
+
+        host = self.headers.get("Host", "127.0.0.1")
+        redirect_url = f"http://{host}/"
+
+        try:
+            result = create_export_checkout(square_access_token, environment, location_id, redirect_url)
+            self._send_json(200, result)
+        except BackendError as error:
+            self._send_json(error.status, {"error": error.message})
+        except Exception:  # noqa: BLE001 - never leak internals to the client
+            self._send_json(500, {"error": "an unexpected error occurred"})
+
+    def _handle_checkout_verify(self, query):
+        """Confirms a specific Square order actually completed payment for
+        the exact expected amount before the caller unlocks anything. This
+        is the only source of truth for whether a purchase is real — the
+        frontend must never infer payment success from the redirect alone."""
+        square_access_token = os.environ.get("SQUARE_ACCESS_TOKEN", "").strip()
+        location_id = os.environ.get("SQUARE_LOCATION_ID", "").strip()
+        environment = os.environ.get("SQUARE_ENVIRONMENT", "sandbox").strip().lower() or "sandbox"
+        if not square_access_token or not location_id:
+            self._send_json(503, {"error": "Checkout is not configured."})
+            return
+
+        order_id = (query.get("orderId", [""])[0] or "").strip()
+        if not order_id or not re.match(r"^[A-Za-z0-9_-]{1,192}$", order_id):
+            self._send_json(400, {"error": "provide a valid orderId"})
+            return
+
+        try:
+            paid = verify_export_payment(square_access_token, environment, location_id, order_id)
+            self._send_json(200, {"paid": paid})
         except BackendError as error:
             self._send_json(error.status, {"error": error.message})
         except Exception:  # noqa: BLE001 - never leak internals to the client

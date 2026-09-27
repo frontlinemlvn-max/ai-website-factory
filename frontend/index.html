@@ -680,7 +680,8 @@ class Component extends DCLogic {
     backendError: null,
     realDomainResults: null,
     publishing: false,
-    publishError: null
+    publishError: null,
+    checkoutError: null
   };
 
   actionList = ["Book a slot", "Call us", "Buy online", "Join the newsletter"];
@@ -690,7 +691,11 @@ class Component extends DCLogic {
   trackRef = React.createRef();
   pieceRef = React.createRef();
 
-  componentDidMount() { this.place(); window.addEventListener("resize", this.place); }
+  componentDidMount() {
+    this.place();
+    window.addEventListener("resize", this.place);
+    this.restoreFromCheckoutRedirect();
+  }
   componentDidUpdate() { this.place(); }
   componentWillUnmount() { window.removeEventListener("resize", this.place); clearTimeout(this.t); }
 
@@ -987,10 +992,99 @@ class Component extends DCLogic {
   };
   closePaywall = () => this.setState({ paywall: false, paying: false });
   pickPlan = (key) => this.setState({ plan: key });
-  pay = () => {
+  // Real payment for the one-time export plan, via ./factory frontend's
+  // /api/checkout (Square-hosted checkout — this app never handles card
+  // data itself). The Studio subscription stays fully simulated: a real
+  // recurring subscription needs a user-account system this prototype
+  // doesn't have. Falls back to the prior simulated toggle when there's no
+  // real backend, it isn't configured, or the request fails — same pattern
+  // used throughout this vertical slice.
+  simulatePay = () => {
     this.setState({ paying: true });
     clearTimeout(this.p);
     this.p = setTimeout(() => this.setState({ paying: false, paywall: false, exportPaid: true, downloaded: true }), 1200);
+  };
+
+  pay = async () => {
+    const plan = this.state.plan || "once";
+    if (plan !== "once") { this.simulatePay(); return; }
+
+    this.setState({ paying: true, checkoutError: null });
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: "once" })
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data || !data.checkoutUrl || !data.orderId) {
+        throw new Error((data && data.error) || "checkout unavailable");
+      }
+
+      // This page has no state persistence beyond theme, and Square
+      // Checkout is a real hosted redirect (full page navigation away and
+      // back) — stash what's needed to restore the finished site once the
+      // customer returns, keyed to this specific order so a stale or
+      // unrelated localStorage entry can never be mistaken for this
+      // purchase.
+      try {
+        localStorage.setItem("wf-pending-checkout", JSON.stringify({
+          orderId: data.orderId,
+          savedState: {
+            name: this.state.name, brief: this.state.brief, who: this.state.who,
+            action: this.state.action, extras: this.state.extras, gen: this.state.gen,
+            backend: this.state.backend, boughtDomain: this.state.boughtDomain,
+            boughtPrice: this.state.boughtPrice, plan
+          }
+        }));
+      } catch (e) {}
+
+      window.location.href = data.checkoutUrl;
+    } catch (e) {
+      this.simulatePay();
+    }
+  };
+
+  // Runs once on load. If the browser was just redirected back from a real
+  // Square checkout (Square appends ?orderId=... to our redirect_url), this
+  // verifies the payment server-side — the ONLY source of truth for
+  // whether it succeeded — before restoring the pre-redirect state and
+  // unlocking export. Never trusts the redirect's mere presence as proof of
+  // payment; a customer could reach that URL without having paid.
+  restoreFromCheckoutRedirect = async () => {
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get("orderId");
+    if (!orderId) return;
+
+    // Clean the order-tracking params out of the URL regardless of outcome,
+    // so reloading or sharing the link can't replay a verification.
+    window.history.replaceState({}, "", window.location.pathname);
+
+    let pending = null;
+    try {
+      const raw = localStorage.getItem("wf-pending-checkout");
+      if (raw) pending = JSON.parse(raw);
+    } catch (e) {}
+    try { localStorage.removeItem("wf-pending-checkout"); } catch (e) {}
+
+    if (!pending || pending.orderId !== orderId) return;
+
+    try {
+      const response = await fetch("/api/checkout/verify?orderId=" + encodeURIComponent(orderId));
+      const data = await response.json().catch(() => null);
+      if (response.ok && data && data.paid === true) {
+        this.setState({
+          ...pending.savedState,
+          finished: true, running: true,
+          paywall: false, paying: false,
+          exportPaid: true, downloaded: false
+        });
+      }
+      // If not paid (abandoned checkout, etc.), leave the page at its
+      // default state rather than guessing — no partial/fake unlock.
+    } catch (e) {
+      // Verification unreachable — do not unlock export on a guess.
+    }
   };
 
   toggleTheme = () => this.setState(s => {
