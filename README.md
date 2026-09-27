@@ -257,7 +257,7 @@ Serves `frontend/` and a small JSON API from the same origin and port
   503 rather than fabricating output when it's not set. Limited to 5 requests/minute
   per IP, since each call costs real money.
 - `POST /api/checkout` — creates a real Square hosted Checkout link for either the
-  one-time $39 CAD website export or the recurring $29 CAD/month Studio
+  one-time $399 CAD website export or the recurring $29 CAD/month Studio
   subscription. Requires `SQUARE_ACCESS_TOKEN` and `SQUARE_LOCATION_ID` (environment
   or `.env`; see `.env.example`) — fails closed with a clear 503 when not set.
   `SQUARE_ENVIRONMENT` defaults to `sandbox` (no real charges) and must be

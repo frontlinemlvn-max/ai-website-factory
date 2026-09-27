@@ -148,7 +148,7 @@ CHECKOUT_RATE_LIMIT_MAX_REQUESTS = 10
 # Price is fixed here, server-side, and never taken from the request body —
 # a client-supplied price would let anyone buy the export for any amount
 # they chose. This must be the only source of truth for what gets charged.
-EXPORT_PRICE_CENTS = 3900
+EXPORT_PRICE_CENTS = 39900
 EXPORT_CURRENCY = "CAD"
 # Same reasoning as EXPORT_PRICE_CENTS above: fixed here, server-side, and
 # must match the price configured on the Square subscription plan variation
